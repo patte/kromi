@@ -26,7 +26,7 @@ The second one is optional and does nothing unless you run it — see Wallpapers
 ```
 narchy set <theme>      render the palette and reload running apps
 narchy list             list themes, marking the current one
-narchy demo [seconds]   browse themes: n/p step, a auto, o keep, x restore
+narchy demo [seconds]   browse themes: n/p step, a auto, r restore, x keep
                         with seconds, starts rolling at that interval
 narchy current          print the current theme
 narchy background next  cycle to this theme's next wallpaper
@@ -46,7 +46,7 @@ narchy demo 8      # roll on its own, 8 seconds a theme
 Applies a theme, prints its name, and waits for a key:
 
 ```
-n next   p prev   a auto   1-9 secs   o keep   x restore
+n next   p prev   a auto   1-9 secs   r restore   x keep
 
 [13/19] osaka-jade  (yours)
 [14/19] retro-82
@@ -57,13 +57,13 @@ n next   p prev   a auto   1-9 secs   o keep   x restore
 | `n` / `p` | step forwards or backwards, wrapping around |
 | `a` | toggle rolling on by itself |
 | `1`–`9` | seconds between steps in auto |
-| `o` | stop here and keep this theme |
-| `x` | stop and put back the one you started with |
+| `r` | step back to the one you started with, still browsing |
+| `x` | stop here and keep whatever is showing |
 
-It begins on your current theme — marked `(yours)`, since that is where `x`
+It begins on your current theme — marked `(yours)`, since that is where `r`
 comes back to — so `p` reaches the one before it. Naming an interval starts it
 rolling at that interval; with no interval it steps by hand until you press
-`a`, then every 3 seconds. Ctrl-C behaves like `o`: quitting abruptly should
+`a`, then every 3 seconds. Ctrl-C behaves like `x`: quitting abruptly should
 not undo a theme you stopped on to look at. The names stay in your scrollback
 either way, so one you liked and missed is a `narchy set <name>` away.
 

@@ -323,25 +323,43 @@ if command -v python3 >/dev/null 2>&1; then
     local keys=$1
     shift
     python3 -c '
-import os, pty, subprocess, sys
+import os, pty, select, sys, time
 
-keys, cmd = sys.argv[1].encode(), sys.argv[2:]
-master, slave = pty.openpty()
-child = subprocess.Popen(cmd, stdin=slave, stdout=slave, stderr=slave)
-os.close(slave)
-os.write(master, keys)
+keys, cmd = sys.argv[1].encode().decode("unicode_escape").encode(), sys.argv[2:]
+# pty.fork rather than a pipe pair: only a controlling terminal turns a typed
+# ^C into a signal, and one of these tests is about Ctrl-C.
+pid, master = pty.fork()
+if pid == 0:
+    os.execvp(cmd[0], cmd)
 
 out = b""
-while True:
-    try:
-        chunk = os.read(master, 4096)
-    except OSError:
+
+def drain(seconds):
+    global out
+    end = time.time() + seconds
+    while time.time() < end:
+        if select.select([master], [], [], 0.1)[0]:
+            try:
+                chunk = os.read(master, 4096)
+            except OSError:
+                return False
+            if not chunk:
+                return False
+            out += chunk
+    return True
+
+# Type only once there is output, so a signal cannot arrive before the trap,
+# and one key at a time: sent together, a ^C is handled before the key ahead
+# of it is ever read.
+drain(1.0)
+for key in keys:
+    os.write(master, bytes([key]))
+    drain(0.4)
+while drain(0.5):
+    if os.waitpid(pid, os.WNOHANG)[0]:
         break
-    if not chunk:
-        break
-    out += chunk
 sys.stdout.write(out.decode(errors="replace"))
-sys.exit(child.wait())
+sys.exit(0)
 ' "$keys" "$@"
   }
 
@@ -358,9 +376,42 @@ sys.exit(child.wait())
   [[ $(grep -m1 '^\[' "$SANDBOX/demo-manual.out") == *"nord  (yours)"* ]]
   check $? "demo marks the theme you started on"
 
-  # Whichever way it started, x is what puts your own theme back.
-  [[ $("$NARCHY" current) == nord ]]
-  check $? "demo restores on x"
+  # tr, because a terminal ends its lines with a carriage return too.
+  showing_of() { grep '^\[' "$1" | tail -1 | tr -d '\r' | awk '{print $2}'; }
+
+  # r steps back to the theme you came with without ending the browse, so the
+  # x that follows is what stops it — and stops it on yours.
+  NARCHY_APPS=dummy pty 'nnrx' "$NARCHY" demo >"$SANDBOX/demo-restore.out" 2>&1 || true
+  [[ $(showing_of "$SANDBOX/demo-restore.out") == nord ]]
+  check $? "r steps back to the theme you came with"
+
+  grep -q '^kept nord' "$SANDBOX/demo-restore.out"
+  check $? "r keeps browsing, so x is still what ends it"
+
+  [[ $(NARCHY_APPS=dummy "$NARCHY" current) == nord ]]
+  check $? "r leaves the theme where it found it"
+
+  # x stops on whatever is showing rather than on the one you came with.
+  NARCHY_APPS=dummy pty 'nx' "$NARCHY" demo >"$SANDBOX/demo-keep.out" 2>&1 || true
+  showing=$(showing_of "$SANDBOX/demo-keep.out")
+  grep -q "^kept $showing" "$SANDBOX/demo-keep.out"
+  check $? "x keeps the theme it was showing"
+
+  [[ -n $showing && $showing != nord && $(NARCHY_APPS=dummy "$NARCHY" current) == "$showing" ]]
+  check $? "x leaves the theme it stopped on"
+
+  # Ctrl-C is x: the trap fires at once but does not make a blocked read
+  # return, so a demo that waits on the keypress itself sits there ignoring it.
+  NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
+  NARCHY_APPS=dummy pty 'n\x03' "$NARCHY" demo >"$SANDBOX/demo-int.out" 2>&1 || true
+  grep -q '^kept ' "$SANDBOX/demo-int.out"
+  check $? "ctrl-c stops the demo"
+
+  showing=$(showing_of "$SANDBOX/demo-int.out")
+  [[ -n $showing && $showing != nord && $(NARCHY_APPS=dummy "$NARCHY" current) == "$showing" ]]
+  check $? "ctrl-c keeps the theme it was showing, not the one you came with"
+
+  NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
 else
   echo "  skip demo key handling (no python3 for a pty)"
 fi
