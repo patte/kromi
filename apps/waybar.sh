@@ -4,7 +4,7 @@ style="${XDG_CONFIG_HOME:-$HOME/.config}/waybar/style.css"
 palette_import="@import \"$(theme_file palette.css)\";"
 theme_import="@import \"$(theme_file waybar.css)\";"
 
-reload() { pkill -SIGUSR2 -x waybar 2>/dev/null || true; }
+reload() { signal_reload waybar; }
 
 link() {
   # Without a seed, creating style.css would drop waybar's own layout rules.

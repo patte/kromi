@@ -54,6 +54,9 @@ detect() { true; }
 reload() { :; }
 EOF
 
+printf 'a={{ background_rgb }} b={{ background_strip }} mode={{ mode }}\n' \
+  >"$XDG_CONFIG_HOME/narchy/templates/probe.conf.tpl"
+
 # Sorts last, so it catches a failed detection ending the whole run.
 cat >"$XDG_CONFIG_HOME/narchy/apps/zz-absent.sh" <<'EOF'
 templates="probe.conf"
@@ -86,11 +89,20 @@ check $? "palette values reach the generated css"
 "$NARCHY" set nord >/dev/null 2>&1
 check $? "set succeeds when an app is undetected"
 
+# Narrowing the app list must not delete files other configs still import;
+# a missing @import target stops waybar starting at all.
+NARCHY_APPS=probe "$NARCHY" set nord >/dev/null
+[[ -f $XDG_STATE_HOME/narchy/current/palette.css && -f $XDG_STATE_HOME/narchy/current/waybar.css ]]
+check $? "narrowing NARCHY_APPS still renders every app's files"
+
 # The _rgb and _strip forms are the two derived substitutions templates rely on.
-printf 'a={{ background_rgb }} b={{ background_strip }}\n' >"$XDG_CONFIG_HOME/narchy/templates/probe.conf.tpl"
 NARCHY_APPS=probe "$NARCHY" set tokyo-night >/dev/null
-grep -qx 'a=26,27,38 b=1a1b26' "$XDG_STATE_HOME/narchy/current/probe.conf"
-check $? "derived _rgb and _strip substitutions"
+grep -qx 'a=26,27,38 b=1a1b26 mode=dark' "$XDG_STATE_HOME/narchy/current/probe.conf"
+check $? "derived _rgb, _strip and mode substitutions"
+
+NARCHY_APPS=probe "$NARCHY" set white >/dev/null
+grep -q 'mode=light' "$XDG_STATE_HOME/narchy/current/probe.conf"
+check $? "mode follows background luminance"
 
 # A theme shipping its own file must win over the template.
 mkdir -p "$XDG_CONFIG_HOME/narchy/themes/custom"

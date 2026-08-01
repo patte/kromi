@@ -96,6 +96,29 @@ drop_line() {
   [[ -s $file ]] || rm -f "$file"
 }
 
+# Reload by signal, putting the program back if the signal kills it. waybar
+# does not survive reloads arriving faster than it can apply them, and losing
+# someone's bar to a theme switch is not an acceptable failure.
+#
+# Restarts from the original argv. A program under a supervisor that also
+# restarts it should use a reload of its own instead.
+signal_reload() {
+  local name=$1 signal=${2:-USR2} pid
+  local -a argv=()
+
+  pid=$(pgrep -x "$name" 2>/dev/null | head -1)
+  [[ -n $pid ]] || return 0
+
+  mapfile -d '' -t argv <"/proc/$pid/cmdline" 2>/dev/null || true
+  kill "-$signal" "$pid" 2>/dev/null || return 0
+
+  sleep 0.4
+  if ! kill -0 "$pid" 2>/dev/null && ((${#argv[@]} > 0)); then
+    setsid "${argv[@]}" >/dev/null 2>&1 &
+    warn "$name crashed on reload; restarted it"
+  fi
+}
+
 # Rewrites `key = value` in place; appends when the key is absent.
 set_kv() {
   local file=$1 key=$2 value=$3
@@ -151,20 +174,46 @@ hex_to_rgb() {
   printf '%d,%d,%d' "0x${hex:0:2}" "0x${hex:2:2}" "0x${hex:4:2}"
 }
 
+# Rec. 601 luma, in integer arithmetic.
+luma_mode() {
+  local hex="${1#\#}" r g b
+  r=$((16#${hex:0:2}))
+  g=$((16#${hex:2:2}))
+  b=$((16#${hex:4:2}))
+  if (((299 * r + 587 * g + 114 * b) / 1000 > 127)); then
+    printf 'light\n'
+  else
+    printf 'dark\n'
+  fi
+}
+
 # colors.toml is flat key = "value", so a sed script is enough of an engine.
 build_sed_script() {
   local key value
+  local -A colors=()
+
   while IFS='=' read -r key value; do
     key="${key//[\"\' ]/}"
     [[ $key && $key != \#* ]] || continue
     value="${value#*[\"\']}"
     value="${value%%[\"\']*}"
+    colors[$key]="$value"
+  done <"$1"
+
+  # Editors need to know whether they are theming light or dark. A theme may
+  # say so outright; otherwise take it from how bright the background is.
+  if [[ -z ${colors[mode]:-} && -n ${colors[background]:-} ]]; then
+    colors[mode]=$(luma_mode "${colors[background]}")
+  fi
+
+  for key in "${!colors[@]}"; do
+    value="${colors[$key]}"
     printf 's|{{ %s }}|%s|g\n' "$key" "$value"
     printf 's|{{ %s_strip }}|%s|g\n' "$key" "${value#\#}"
     if [[ $value == \#* ]]; then
       printf 's|{{ %s_rgb }}|%s|g\n' "$key" "$(hex_to_rgb "$value")"
     fi
-  done <"$1"
+  done
 }
 
 normalise_name() { printf '%s\n' "$1" | tr '[:upper:] ' '[:lower:]-'; }
@@ -195,8 +244,13 @@ cmd_set() {
     script=$(mktemp)
     build_sed_script "$NEXT/colors.toml" >"$script"
 
+    # Every known app, not just the detected ones. Rendering a file for a
+    # program that is absent costs nothing, whereas failing to render one that
+    # a config still imports breaks that app at startup — a missing @import
+    # takes waybar down entirely. Detection decides what gets reloaded and
+    # linked, never what exists on disk.
     local app tpl_name tpl
-    for app in $apps; do
+    for app in $(list_apps); do
       while read -r tpl_name; do
         [[ -n $tpl_name ]] || continue
         # A theme shipping its own file wins over the template.

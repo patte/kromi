@@ -2,7 +2,7 @@ templates="btop.theme"
 
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/btop"
 
-reload() { pkill -SIGUSR2 -x btop 2>/dev/null || true; }
+reload() { signal_reload btop; }
 
 # btop only loads themes from its own themes dir, so this one links a file
 # rather than adding an import.
