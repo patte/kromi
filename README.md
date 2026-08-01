@@ -26,7 +26,7 @@ The second one is optional and does nothing unless you run it — see Wallpapers
 ```
 narchy set <theme>      render the palette and reload running apps
 narchy list             list themes, marking the current one
-narchy demo [seconds]   try every theme in turn; ctrl-c keeps one
+narchy demo [seconds]   browse themes: n/p step, a auto, o keep, x restore
 narchy current          print the current theme
 narchy background next  cycle to this theme's next wallpaper
 narchy background apply reapply the current one (for autostart)
@@ -38,21 +38,35 @@ narchy unlink [app...]  undo link
 ## Picking one
 
 ```sh
-narchy demo        # 3 seconds each
-narchy demo 8      # longer look
+narchy demo        # auto steps every 3 seconds
+narchy demo 8      # ...when you turn auto on
 ```
 
-Applies each theme in turn and prints its name as it goes:
+Applies a theme, prints its name, and waits for a key:
 
 ```
-[ 3/19] ethereal
-[ 4/19] everforest
+n next   p prev   a auto   1-9 secs   o keep   x restore
+
+[13/19] osaka-jade
+[14/19] retro-82
 ```
 
-Ctrl-C keeps whatever is showing — that is the point of watching. Let it run
-to the end instead and it puts back the theme you started with, rather than
-stranding you on whichever one sorts last. Either way the names stay in your
-scrollback, so one you liked and missed is a `narchy set <name>` away.
+| Key | |
+|---|---|
+| `n` / `p` | step forwards or backwards, wrapping around |
+| `a` | toggle rolling on by itself |
+| `1`–`9` | seconds between steps in auto |
+| `o` | stop here and keep this theme |
+| `x` | stop and put back the one you started with |
+
+It begins on your current theme, so `p` reaches the one before it, and it
+steps by hand until you press `a`. Ctrl-C behaves like `o`: quitting abruptly
+should not undo a theme you stopped on to look at. The names stay in your
+scrollback either way, so one you liked and missed is a `narchy set <name>`
+away.
+
+With no terminal to read keys from — piped, or from a script — it just rolls
+through unattended and restores what you had at the end.
 
 ## Two layers, on purpose
 

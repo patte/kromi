@@ -374,24 +374,15 @@ cmd_current() {
   cat "$CURRENT/.name"
 }
 
-cmd_demo() {
-  local delay=${1:-3}
-  [[ $delay =~ ^[0-9]+$ ]] || die "usage: narchy demo [seconds]"
+# Without a terminal there are no keys to read, so roll through unattended.
+# Ctrl-C keeps whatever is showing; reaching the end puts back what you had.
+demo_roll() {
+  local delay=$1 original=$2
+  shift 2
+  local -a all=("$@")
 
-  local -a all
-  mapfile -t all < <(list_themes)
-  ((${#all[@]})) || die "no themes"
-
-  local original
-  original=$(cat "$CURRENT/.name" 2>/dev/null || true)
-
-  # Ctrl-C keeps whatever is on screen — that is the whole point of watching.
-  # Running to the end instead puts back the theme you started with, rather
-  # than leaving you on whichever one happens to sort last.
   local stopped=0
   trap 'stopped=1' INT
-
-  printf 'ctrl-c keeps the one showing\n\n'
 
   local theme index=0
   for theme in "${all[@]}"; do
@@ -409,6 +400,90 @@ cmd_demo() {
   elif [[ -n $original ]]; then
     cmd_set "$original" >/dev/null
     printf '\nback to %s — apply any of the above with: narchy set <name>\n' "$original"
+  fi
+}
+
+demo_interactive() {
+  local delay=$1 original=$2
+  shift 2
+  local -a all=("$@")
+  local count=${#all[@]}
+
+  # Start where you already are, so `p` reaches the theme before this one.
+  local index=0 i
+  for i in "${!all[@]}"; do
+    [[ ${all[$i]} == "$original" ]] && index=$i && break
+  done
+
+  printf 'n next   p prev   a auto   1-9 secs   o keep   x restore\n\n'
+
+  # Ctrl-C is treated as `o`: quitting abruptly should not undo a theme you
+  # stopped on to look at.
+  local interrupted=0
+  trap 'interrupted=1' INT
+
+  local auto=0 applied="" key
+  while true; do
+    if [[ ${all[$index]} != "$applied" ]]; then
+      cmd_set "${all[$index]}" >/dev/null
+      applied="${all[$index]}"
+      printf '[%2d/%d] %s\n' "$((index + 1))" "$count" "$applied"
+    fi
+
+    key=""
+    if ((auto)); then
+      read -rsn1 -t "$delay" key || key=""
+    else
+      read -rsn1 key || key="o"
+    fi
+    ((interrupted)) && key="o"
+
+    case $key in
+      "") ((auto)) && index=$(((index + 1) % count)) ;;
+      n | N) index=$(((index + 1) % count)) ;;
+      p | P) index=$(((index - 1 + count) % count)) ;;
+      a | A)
+        auto=$((1 - auto))
+        printf '      auto %s\n' "$( ((auto)) && echo "on, ${delay}s" || echo off)"
+        ;;
+      [0-9])
+        delay=$key
+        printf '      %ss\n' "$delay"
+        ;;
+      o | O)
+        trap - INT
+        printf '\nkept %s\n' "$applied"
+        return 0
+        ;;
+      x | X)
+        trap - INT
+        if [[ -n $original ]]; then
+          cmd_set "$original" >/dev/null
+          printf '\nrestored %s\n' "$original"
+        else
+          printf '\nnothing to restore; left on %s\n' "$applied"
+        fi
+        return 0
+        ;;
+    esac
+  done
+}
+
+cmd_demo() {
+  local delay=${1:-3}
+  [[ $delay =~ ^[0-9]+$ ]] || die "usage: narchy demo [seconds]"
+
+  local -a all
+  mapfile -t all < <(list_themes)
+  ((${#all[@]})) || die "no themes"
+
+  local original
+  original=$(cat "$CURRENT/.name" 2>/dev/null || true)
+
+  if [[ -t 0 ]]; then
+    demo_interactive "$delay" "$original" "${all[@]}"
+  else
+    demo_roll "$delay" "$original" "${all[@]}"
   fi
 }
 
@@ -486,10 +561,9 @@ narchy — apply one colour palette across a desktop's apps.
 
   narchy set <theme>      render the palette and reload running apps
   narchy list             list themes, marking the current one
-  narchy demo [seconds]   try every theme in turn; ctrl-c keeps one
+  narchy demo [seconds]   browse themes: n/p step, a auto, o keep, x restore
   narchy current          print the current theme
   narchy background next  cycle to this theme's next wallpaper
-  narchy background apply reapply the current one (for autostart)
   narchy background apply reapply the current one (for autostart)
   narchy apps             list app definitions, marking detected ones
   narchy link [app...]    point app configs at narchy's output (opt-in)

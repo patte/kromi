@@ -206,7 +206,7 @@ check $? "set leaves vscode alone when it is not linked"
 echo "demo"
 
 NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
-NARCHY_APPS=dummy "$NARCHY" demo 0 >"$SANDBOX/demo.out" 2>/dev/null
+NARCHY_APPS=dummy "$NARCHY" demo 0 >"$SANDBOX/demo.out" 2>/dev/null </dev/null
 
 # Every theme narchy lists, which includes any the sandbox added.
 "$NARCHY" list >"$SANDBOX/demo-list.txt"
@@ -220,7 +220,7 @@ check $? "demo restores the theme it started from"
 grep -q 'narchy set' "$SANDBOX/demo.out"
 check $? "demo says how to apply one you liked"
 
-! NARCHY_APPS=dummy "$NARCHY" demo notanumber >/dev/null 2>&1
+! NARCHY_APPS=dummy "$NARCHY" demo notanumber >/dev/null 2>&1 </dev/null
 check $? "demo rejects a non-numeric delay"
 
 echo "background selection"
