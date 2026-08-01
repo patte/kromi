@@ -16,7 +16,10 @@ it recolours whatever it finds.
 ```sh
 git clone https://github.com/patte/narchy ~/.local/share/narchy
 ln -s ~/.local/share/narchy/bin/narchy ~/.local/bin/narchy
+ln -s ~/.local/share/narchy/bin/narchy-backgrounds ~/.local/bin/narchy-backgrounds
 ```
+
+The second one is optional and does nothing unless you run it — see Wallpapers.
 
 ## Use
 
@@ -129,6 +132,38 @@ palette key is available in three forms:
 | `{{ background_rgb }}` | `26,27,38` |
 
 Override any of them from `~/.config/narchy/templates/`.
+
+## Wallpapers
+
+narchy ships none. They are not the project's to hand out: a palette is a list
+of hex codes, but a wallpaper is someone's photograph or artwork, and an
+upstream set that mixes freely licensed photography with film stills and
+paintings cannot be relicensed by whoever collected it.
+
+`narchy-backgrounds` fetches them instead, so the files come from their source
+rather than from here:
+
+```sh
+narchy-backgrounds --list          # what is available, and how many
+narchy-backgrounds                 # every theme narchy knows about
+narchy-backgrounds nord kanagawa   # just these
+```
+
+They land in `~/.config/narchy/backgrounds/<theme>/`. **Nothing already there
+is ever overwritten**, so pictures you put there yourself survive a re-run —
+only names that do not exist yet are added.
+
+Defaults to Omarchy v3.8.4. Point it elsewhere with `NARCHY_BACKGROUNDS_REPO`
+and `NARCHY_BACKGROUNDS_REF`; any repository laid out as
+`themes/<name>/backgrounds/` will do, including one of your own.
+
+Downloading art does not license it. Fetching means narchy is not the one
+distributing these files, but they still belong to the people who made them,
+and a few in the upstream set are plainly not free to redistribute. Use your
+judgement, particularly if you are putting the result somewhere public.
+
+Nothing reads these yet — narchy does not set wallpapers. Support for that
+needs a wallpaper daemon and is not written.
 
 ## Adding an app
 

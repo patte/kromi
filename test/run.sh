@@ -203,6 +203,50 @@ check $? "unlink hands vscode settings back exactly as they were"
 [[ $(jq -r '."workbench.colorCustomizations"."editor.background" // "none"' "$settings") == "none" ]]
 check $? "set leaves vscode alone when it is not linked"
 
+echo "backgrounds"
+
+# Point the fetcher at a local repo, so this stays offline.
+SOURCE="$SANDBOX/source"
+mkdir -p "$SOURCE/themes/nord/backgrounds" "$SOURCE/themes/gruvbox/backgrounds"
+echo "upstream-a" >"$SOURCE/themes/nord/backgrounds/a.jpg"
+echo "upstream-b" >"$SOURCE/themes/nord/backgrounds/b.jpg"
+echo "upstream-c" >"$SOURCE/themes/gruvbox/backgrounds/c.jpg"
+(
+  cd "$SOURCE"
+  git init -q .
+  git config user.email t@t
+  git config user.name t
+  git config uploadpack.allowFilter true
+  git add -A
+  git commit -qm fixtures
+  git tag v-test
+) >/dev/null 2>&1
+
+export NARCHY_BACKGROUNDS_REPO="$SOURCE"
+export NARCHY_BACKGROUNDS_REF="v-test"
+BACKGROUNDS="$ROOT/bin/narchy-backgrounds"
+DEST="$XDG_CONFIG_HOME/narchy/backgrounds"
+
+"$BACKGROUNDS" nord gruvbox >/dev/null 2>&1
+[[ -f $DEST/nord/a.jpg && -f $DEST/nord/b.jpg && -f $DEST/gruvbox/c.jpg ]]
+check $? "backgrounds are fetched into the user's backgrounds dir"
+
+# The whole point: a picture you put there yourself must survive a re-run.
+echo "mine" >"$DEST/nord/a.jpg"
+echo "also-mine" >"$DEST/nord/keep.jpg"
+"$BACKGROUNDS" nord >/dev/null 2>&1
+[[ $(cat "$DEST/nord/a.jpg") == "mine" ]]
+check $? "an existing file is never overwritten"
+
+[[ -f $DEST/keep.jpg || -f $DEST/nord/keep.jpg ]]
+check $? "a file with no upstream counterpart is left alone"
+
+"$BACKGROUNDS" no-such-theme >/dev/null 2>&1
+check $? "a theme with nothing upstream is not an error"
+
+[[ ! -d $DEST/no-such-theme ]]
+check $? "no empty directory is left for a theme with nothing upstream"
+
 echo
 printf '%s passed, %s failed\n' "$pass" "$fail"
 [[ $fail == 0 ]]
