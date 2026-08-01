@@ -182,6 +182,21 @@ NARCHY_APPS=vscode "$NARCHY" set tokyo-night >/dev/null
 [[ $(jq -r '."workbench.colorCustomizations"."editor.background"' "$settings") == "#1a1b26" ]]
 check $? "vscode follows a theme switch"
 
+# A colour whose default is another colour resolves against the theme under
+# the customisations rather than against ours, so the ones that follow the
+# editor background have to be written out or they keep the base theme's — a
+# black gutter down the side of a white editor.
+missing=""
+for key in editorGutter.background editorPane.background minimap.background \
+  breadcrumb.background editorStickyScroll.background editorStickyScrollGutter.background \
+  editorGroup.emptyBackground editorGroupHeader.noTabsBackground; do
+  [[ $(jq -r --arg k "$key" '."workbench.colorCustomizations"[$k] // "unset"' "$settings") == "#1a1b26" ]] ||
+    missing="$missing $key"
+done
+[[ -z $missing ]]
+check $? "vscode names every surface that follows the editor background"
+[[ -z $missing ]] || printf '       missing:%s\n' "$missing"
+
 echo "unlinking"
 
 "$NARCHY" unlink $apps >/dev/null

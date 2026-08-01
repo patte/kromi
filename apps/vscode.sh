@@ -12,6 +12,15 @@ detect() { command -v code >/dev/null 2>&1; }
 #
 # That makes this the only app narchy writes a config for on `set`. It happens
 # solely once vscode has been linked, which is what the backup marks.
+#
+# The cost of customisations is that they layer over whatever colour theme is
+# active, and only the keys named get replaced. Worse, a key whose default is
+# defined as another colour — editorGutter.background is editor.background,
+# breadcrumb.background likewise — resolves against the theme underneath, not
+# against our value for the colour it points at. Left unnamed they keep the
+# base theme's, which is why the template writes them out even though they
+# only repeat {{ background }}: without them a light palette leaves a black
+# gutter down the side of a white editor.
 apply() {
   local generated
   generated=$(theme_file vscode.json)
