@@ -131,6 +131,37 @@ set_kv() {
   fi
 }
 
+# Sets one key in a JSON file, leaving the rest alone. Refuses rather than
+# guess when the file will not parse — editors allow comments in their JSON,
+# and a mangled settings.json is a bad way to find that out.
+set_json() {
+  local file=$1 key=$2 value=$3
+  mkdir -p "$(dirname "$file")"
+  [[ -e $file ]] || printf '{}\n' >"$file"
+
+  if ! command -v jq >/dev/null 2>&1; then
+    warn "jq not found; set \"$key\": $value in $file yourself"
+    return 1
+  fi
+  if ! jq --arg k "$key" --argjson v "$value" '.[$k] = $v' "$file" >"$file.narchy-tmp" 2>/dev/null; then
+    rm -f "$file.narchy-tmp"
+    warn "cannot parse $file; set \"$key\": $value in it yourself"
+    return 1
+  fi
+  mv "$file.narchy-tmp" "$file"
+}
+
+drop_json() {
+  local file=$1 key=$2
+  [[ -f $file ]] || return 0
+  command -v jq >/dev/null 2>&1 || return 0
+  if jq --arg k "$key" 'del(.[$k])' "$file" >"$file.narchy-tmp" 2>/dev/null; then
+    mv "$file.narchy-tmp" "$file"
+  else
+    rm -f "$file.narchy-tmp"
+  fi
+}
+
 # --- app definitions --------------------------------------------------------
 # Each apps/<name>.sh sets `templates` and may define detect/reload/link/unlink.
 

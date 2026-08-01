@@ -35,6 +35,8 @@ narchy unlink [app...]  undo link
 renders one file per app from the palette and reloads whatever is running. It
 never edits a config of yours.
 
+VS Code is the single exception, and only once you have linked it — see below.
+
 For those generated files to matter, each app's own config has to point at them.
 That is one line per app, and it is a separate command — `narchy link` — because
 plenty of people keep their dotfiles under version control or configuration
@@ -55,6 +57,8 @@ Paths assume the default `XDG_STATE_HOME`. `narchy link` writes exactly these.
 | ghostty | `~/.config/ghostty/config` | `config-file = ?"~/.local/state/narchy/current/ghostty.conf"` |
 | hyprland | `~/.config/hypr/hyprland.lua` | `pcall(dofile, (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/narchy/current/hyprland.lua")` |
 | btop | `~/.config/btop/btop.conf` | symlink `~/.local/state/narchy/current/btop.theme` into `~/.config/btop/themes/`, then set `color_theme` to its name |
+| neovim | `~/.config/nvim/init.lua` | `pcall(dofile, (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/narchy/current/neovim.lua")` |
+| vscode | `~/.config/Code/User/settings.json` | no line — see below |
 
 GTK stylesheets need absolute paths — `~` is not expanded there, so use the full
 path in the waybar and wofi imports.
@@ -66,6 +70,30 @@ is prepended, so anything you write below it stays in charge.
 
 Pre-0.5x Hyprland uses `hyprland.conf` and `source =` instead; narchy detects
 which one you have and renders to match.
+
+### Why VS Code is different
+
+VS Code cannot include another settings file, and it caches themes by id —
+reselecting one hands back the colours it parsed the first time rather than
+rereading the file. A generated theme extension therefore leaves the editor a
+palette behind until you reload the window. `workbench.colorCustomizations` is
+the one thing it applies immediately.
+
+So narchy merges two keys, `workbench.colorCustomizations` and
+`editor.tokenColorCustomizations`, into your `settings.json`, and does it again
+on every switch. Colour keys you already had are kept, and everything else in
+the file is left alone. `narchy link vscode` saves whatever those two keys held
+first, and `narchy unlink vscode` puts it back.
+
+This only ever happens after linking. Until then `narchy set` does not open
+your `settings.json` at all.
+
+### neovim
+
+The generated colorscheme is derived from the palette, so it needs no plugin
+manager, no network and no colorscheme plugin — it works in a bare nvim and
+covers any palette, including your own. Running instances keep their colours;
+new ones start themed.
 
 ## Themes
 
@@ -129,7 +157,7 @@ detection entirely.
 
 ## Supported out of the box
 
-hyprland, waybar, wofi, mako, ghostty, btop.
+hyprland, waybar, wofi, mako, ghostty, btop, neovim, vscode.
 
 ## Tests
 

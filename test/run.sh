@@ -33,10 +33,17 @@ mkdir -p "$FIXTURE/apps"
 ln -s "$ROOT/themes" "$FIXTURE/themes"
 ln -s "$ROOT/templates" "$FIXTURE/templates"
 for app in "$ROOT"/apps/*.sh; do
-  {
-    cat "$app"
-    echo 'reload() { :; }'
-  } >"$FIXTURE/apps/$(basename "$app")"
+  name=$(basename "$app")
+  if [[ $name == vscode.sh ]]; then
+    # Its reload is the theme application itself, not a signal, and it writes
+    # only inside the sandbox — so keep it, or there is nothing to test.
+    cp "$app" "$FIXTURE/apps/$name"
+  else
+    {
+      cat "$app"
+      echo 'reload() { :; }'
+    } >"$FIXTURE/apps/$name"
+  fi
 done
 export NARCHY_PATH="$FIXTURE"
 
@@ -63,6 +70,10 @@ templates="probe.conf"
 detect() { false; }
 reload() { :; }
 EOF
+
+# Setup is done. Assertions report their own failures from here, so a failing
+# one must not take the whole run down with it.
+set +e
 
 echo "rendering"
 
@@ -125,12 +136,18 @@ echo "linking"
 NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
 
 # Seed configs the way a real system would have them.
-mkdir -p "$XDG_CONFIG_HOME/hypr" "$XDG_CONFIG_HOME/waybar"
+mkdir -p "$XDG_CONFIG_HOME/hypr" "$XDG_CONFIG_HOME/waybar" "$XDG_CONFIG_HOME/Code/User"
 echo "-- user config" >"$XDG_CONFIG_HOME/hypr/hyprland.lua"
 echo "window#waybar { padding: 0; }" >"$XDG_CONFIG_HOME/waybar/style.css"
+cat >"$XDG_CONFIG_HOME/Code/User/settings.json" <<'EOF'
+{
+  "editor.fontSize": 13,
+  "workbench.colorCustomizations": { "titleBar.border": "#abcdef" }
+}
+EOF
 cp -r "$XDG_CONFIG_HOME" "$SANDBOX/config.before"
 
-apps="hyprland waybar wofi mako ghostty btop"
+apps="hyprland waybar wofi mako ghostty btop neovim vscode"
 "$NARCHY" link $apps >/dev/null
 "$NARCHY" link $apps >/dev/null
 
@@ -149,6 +166,22 @@ check $? "theme import comes last, so it overrides"
 [[ -L $XDG_CONFIG_HOME/btop/themes/narchy.theme ]]
 check $? "btop theme is symlinked into its themes dir"
 
+settings="$XDG_CONFIG_HOME/Code/User/settings.json"
+
+[[ $(jq -r '."editor.fontSize"' "$settings") == 13 ]]
+check $? "vscode link leaves unrelated settings alone"
+
+[[ $(jq -r '."workbench.colorCustomizations"."editor.background"' "$settings") == "#2e3440" ]]
+check $? "vscode link writes the palette into colorCustomizations"
+
+[[ $(jq -r '."workbench.colorCustomizations"."titleBar.border"' "$settings") == "#abcdef" ]]
+check $? "vscode link keeps colour keys the user already had"
+
+# vscode is the one app written to on `set`, so it has to follow a switch.
+NARCHY_APPS=vscode "$NARCHY" set tokyo-night >/dev/null
+[[ $(jq -r '."workbench.colorCustomizations"."editor.background"' "$settings") == "#1a1b26" ]]
+check $? "vscode follows a theme switch"
+
 echo "unlinking"
 
 "$NARCHY" unlink $apps >/dev/null
@@ -161,6 +194,14 @@ check $? "unlink restores configs byte for byte"
 
 [[ ! -e $XDG_CONFIG_HOME/mako/config ]]
 check $? "unlink removes configs that held only our line"
+
+diff <(jq -S . "$SANDBOX/config.before/Code/User/settings.json") <(jq -S . "$settings") >/dev/null
+check $? "unlink hands vscode settings back exactly as they were"
+
+# Nothing may be written to a config that was never linked.
+"$NARCHY" set gruvbox >/dev/null
+[[ $(jq -r '."workbench.colorCustomizations"."editor.background" // "none"' "$settings") == "none" ]]
+check $? "set leaves vscode alone when it is not linked"
 
 echo
 printf '%s passed, %s failed\n' "$pass" "$fail"
