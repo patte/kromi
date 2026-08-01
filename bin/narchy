@@ -374,6 +374,44 @@ cmd_current() {
   cat "$CURRENT/.name"
 }
 
+cmd_demo() {
+  local delay=${1:-3}
+  [[ $delay =~ ^[0-9]+$ ]] || die "usage: narchy demo [seconds]"
+
+  local -a all
+  mapfile -t all < <(list_themes)
+  ((${#all[@]})) || die "no themes"
+
+  local original
+  original=$(cat "$CURRENT/.name" 2>/dev/null || true)
+
+  # Ctrl-C keeps whatever is on screen — that is the whole point of watching.
+  # Running to the end instead puts back the theme you started with, rather
+  # than leaving you on whichever one happens to sort last.
+  local stopped=0
+  trap 'stopped=1' INT
+
+  printf 'ctrl-c keeps the one showing\n\n'
+
+  local theme index=0
+  for theme in "${all[@]}"; do
+    ((stopped)) && break
+    index=$((index + 1))
+    cmd_set "$theme" >/dev/null
+    printf '[%2d/%d] %s\n' "$index" "${#all[@]}" "$theme"
+    sleep "$delay" || true
+  done
+
+  trap - INT
+
+  if ((stopped)); then
+    printf '\nstopped on %s\n' "$(cat "$CURRENT/.name" 2>/dev/null || echo unknown)"
+  elif [[ -n $original ]]; then
+    cmd_set "$original" >/dev/null
+    printf '\nback to %s — apply any of the above with: narchy set <name>\n' "$original"
+  fi
+}
+
 cmd_background() {
   local action=${1:-show}
   [[ -f $CURRENT/.name ]] || die "no theme set"
@@ -448,6 +486,7 @@ narchy — apply one colour palette across a desktop's apps.
 
   narchy set <theme>      render the palette and reload running apps
   narchy list             list themes, marking the current one
+  narchy demo [seconds]   try every theme in turn; ctrl-c keeps one
   narchy current          print the current theme
   narchy background next  cycle to this theme's next wallpaper
   narchy background apply reapply the current one (for autostart)
@@ -470,6 +509,7 @@ main() {
     list) cmd_list ;;
     current) cmd_current ;;
     background | bg) cmd_background "$@" ;;
+    demo) cmd_demo "$@" ;;
     apps) cmd_apps ;;
     link) cmd_link "$@" ;;
     unlink) cmd_unlink "$@" ;;

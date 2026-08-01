@@ -26,6 +26,7 @@ The second one is optional and does nothing unless you run it — see Wallpapers
 ```
 narchy set <theme>      render the palette and reload running apps
 narchy list             list themes, marking the current one
+narchy demo [seconds]   try every theme in turn; ctrl-c keeps one
 narchy current          print the current theme
 narchy background next  cycle to this theme's next wallpaper
 narchy background apply reapply the current one (for autostart)
@@ -33,6 +34,25 @@ narchy apps             list app definitions, marking detected ones
 narchy link [app...]    point app configs at narchy's output (opt-in)
 narchy unlink [app...]  undo link
 ```
+
+## Picking one
+
+```sh
+narchy demo        # 3 seconds each
+narchy demo 8      # longer look
+```
+
+Applies each theme in turn and prints its name as it goes:
+
+```
+[ 3/19] ethereal
+[ 4/19] everforest
+```
+
+Ctrl-C keeps whatever is showing — that is the point of watching. Let it run
+to the end instead and it puts back the theme you started with, rather than
+stranding you on whichever one sorts last. Either way the names stay in your
+scrollback, so one you liked and missed is a `narchy set <name>` away.
 
 ## Two layers, on purpose
 
