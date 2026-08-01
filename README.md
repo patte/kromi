@@ -207,6 +207,21 @@ palette key is available in three forms:
 | `{{ background_strip }}` | `1a1b26` |
 | `{{ background_rgb }}` | `26,27,38` |
 
+Three more are worked out from the palette rather than read from it:
+
+| Key | |
+|---|---|
+| `{{ mode }}` | `light` or `dark`, from how bright the background is |
+| `{{ mode_title }}` | the same, capitalised |
+| `{{ dim_text }}` | for comments, line numbers, placeholders |
+
+`dim_text` is chosen per theme: the dimmest of `dark_foreground`, `muted` and
+`color8` that still stands off the background, and whichever stands off
+furthest when none of them does. Which one wins differs by palette — no single
+name works everywhere, because `muted` is matte-black's surface colour and
+`color8` is flexoki-light's foreground. Use it for text that should recede;
+use `muted` for the borders and separators that surround it.
+
 Override any of them from `~/.config/narchy/templates/`.
 
 ## Wallpapers

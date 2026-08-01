@@ -212,16 +212,51 @@ hex_to_rgb() {
 }
 
 # Rec. 601 luma, in integer arithmetic.
-luma_mode() {
+luma() {
   local hex="${1#\#}" r g b
   r=$((16#${hex:0:2}))
   g=$((16#${hex:2:2}))
   b=$((16#${hex:4:2}))
-  if (((299 * r + 587 * g + 114 * b) / 1000 > 127)); then
+  printf '%d\n' $(((299 * r + 587 * g + 114 * b) / 1000))
+}
+
+luma_mode() {
+  if (($(luma "$1") > 127)); then
     printf 'light\n'
   else
     printf 'dark\n'
   fi
+}
+
+# How far a colour has to stand off the background before it reads as text
+# rather than as texture. Luma steps, not a contrast ratio: the arithmetic
+# here is integer, and the ordering is what the choice needs.
+DIM_TEXT_FLOOR=80
+
+# Comments, line numbers, placeholders — text that is meant to recede without
+# disappearing. No single palette name does this in every theme: muted suits
+# borders but is matte-black's surface colour, and color8 is bright black,
+# which flexoki-light sets to its own foreground. So take the dimmest of the
+# candidates that still stands off the background, and the one that stands off
+# furthest when none of them does — a palette with no legible dim colour has
+# nothing better to offer.
+dim_text() {
+  local bg=$1 c d bgl
+  local dimmest="" dimmest_d=-1 furthest="" furthest_d=-1
+  shift
+  bgl=$(luma "$bg")
+  for c in "$@"; do
+    [[ -n $c ]] || continue
+    d=$(luma "$c")
+    ((d = d > bgl ? d - bgl : bgl - d))
+    if ((d > furthest_d)); then
+      furthest=$c furthest_d=$d
+    fi
+    if ((d >= DIM_TEXT_FLOOR)) && ((dimmest_d < 0 || d < dimmest_d)); then
+      dimmest=$c dimmest_d=$d
+    fi
+  done
+  printf '%s\n' "${dimmest:-$furthest}"
 }
 
 # colors.toml is flat key = "value", so a sed script is enough of an engine.
@@ -270,6 +305,11 @@ build_sed_script() {
     from=${derived[$key]}
     [[ -n ${colors[$from]:-} ]] && colors[$key]=${colors[$from]}
   done
+
+  if [[ -z ${colors[dim_text]:-} && -n ${colors[background]:-} ]]; then
+    colors[dim_text]=$(dim_text "${colors[background]}" \
+      "${colors[dark_foreground]:-}" "${colors[muted]:-}" "${colors[color8]:-}")
+  fi
 
   for key in "${!colors[@]}"; do
     value="${colors[$key]}"

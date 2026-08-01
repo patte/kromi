@@ -26,6 +26,20 @@ no() {
 }
 check() { if [[ $1 == 0 ]]; then ok "$2"; else no "$2"; fi; }
 
+# Rec. 601 luma, as narchy computes it, so the dim_text property can be
+# checked without recomputing which colour it picked.
+luma_of() {
+  local h=${1#\#}
+  printf '%d\n' $(((299 * 16#${h:0:2} + 587 * 16#${h:2:2} + 114 * 16#${h:4:2}) / 1000))
+}
+distance() {
+  local a b
+  a=$(luma_of "$1")
+  b=$(luma_of "$2")
+  if ((a > b)); then printf '%d\n' $((a - b)); else printf '%d\n' $((b - a)); fi
+}
+palette_value() { sed -n "s/^$2 = \"\(#[0-9a-fA-F]*\)\"/\1/p" "$1"; }
+
 # Shipped themes and templates as they are, but app definitions with their
 # reloads stripped: this suite must never signal the live session.
 FIXTURE="$SANDBOX/fixture"
@@ -61,7 +75,7 @@ detect() { true; }
 reload() { :; }
 EOF
 
-printf 'a={{ background_rgb }} b={{ background_strip }} mode={{ mode }} title={{ mode_title }}\n' \
+printf 'a={{ background_rgb }} b={{ background_strip }} mode={{ mode }} title={{ mode_title }} dim={{ dim_text }}\n' \
   >"$XDG_CONFIG_HOME/narchy/templates/probe.conf.tpl"
 
 # Sorts last, so it catches a failed detection ending the whole run.
@@ -83,6 +97,7 @@ echo "rendering"
 # slots for both made hover rows and breadcrumbs illegible.
 unresolved=""
 collided=""
+faint=""
 for theme_dir in "$ROOT"/themes/*/; do
   theme=$(basename "$theme_dir")
   NARCHY_APPS=dummy "$NARCHY" set "$theme" >/dev/null
@@ -102,6 +117,20 @@ for theme_dir in "$ROOT"/themes/*/; do
   if [[ $surface == "$dim" ]]; then
     collided="$collided neovim/$theme"
   fi
+
+  # dim_text has to clear the floor, or match the furthest candidate from the
+  # background when the palette has nothing that does.
+  bg=$(palette_value "$theme_dir/colors.toml" background)
+  chosen=$(sed -n 's/.*dim=\(#[0-9a-fA-F]*\).*/\1/p' "$XDG_STATE_HOME/narchy/current/probe.conf")
+  best=0
+  for name in dark_foreground muted color8; do
+    d=$(distance "$(palette_value "$theme_dir/colors.toml" "$name")" "$bg")
+    ((d > best)) && best=$d
+  done
+  ((best > 80)) && best=80
+  if (($(distance "$chosen" "$bg") < best)); then
+    faint="$faint $theme"
+  fi
 done
 [[ -z $unresolved ]]
 check $? "all themes render with no unresolved tokens ($(ls "$ROOT/themes" | wc -l) themes)"
@@ -109,6 +138,10 @@ check $? "all themes render with no unresolved tokens ($(ls "$ROOT/themes" | wc 
 [[ -z $collided ]]
 check $? "no theme paints dim text the colour of the surface under it"
 [[ -z $collided ]] || printf '       collided:%s\n' "$collided"
+
+[[ -z $faint ]]
+check $? "dim text stands off the background as far as the palette allows"
+[[ -z $faint ]] || printf '       too faint:%s\n' "$faint"
 
 # The names past the 16 slots are not derivable, so a palette written by hand
 # may well omit them. Every template still has to render.
@@ -141,7 +174,7 @@ check $? "narrowing NARCHY_APPS still renders every app's files"
 
 # The _rgb and _strip forms are the two derived substitutions templates rely on.
 NARCHY_APPS=probe "$NARCHY" set tokyo-night >/dev/null
-grep -qx 'a=26,27,38 b=1a1b26 mode=dark title=Dark' "$XDG_STATE_HOME/narchy/current/probe.conf"
+grep -q 'a=26,27,38 b=1a1b26 mode=dark title=Dark dim=#' "$XDG_STATE_HOME/narchy/current/probe.conf"
 check $? "derived _rgb, _strip and mode substitutions"
 
 NARCHY_APPS=probe "$NARCHY" set white >/dev/null
