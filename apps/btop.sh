@@ -1,0 +1,18 @@
+templates="btop.theme"
+
+config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/btop"
+
+reload() { pkill -SIGUSR2 -x btop 2>/dev/null || true; }
+
+# btop only loads themes from its own themes dir, so this one links a file
+# rather than adding an import.
+link() {
+  mkdir -p "$config_dir/themes"
+  ln -snf "$(theme_file btop.theme)" "$config_dir/themes/narchy.theme"
+  set_kv "$config_dir/btop.conf" color_theme '"narchy"'
+}
+
+unlink() {
+  rm -f "$config_dir/themes/narchy.theme"
+  set_kv "$config_dir/btop.conf" color_theme '"Default"'
+}

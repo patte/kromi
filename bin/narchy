@@ -1,0 +1,312 @@
+#!/usr/bin/env bash
+# narchy — apply one colour palette across a desktop's apps.
+set -euo pipefail
+
+NARCHY_PATH="${NARCHY_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}"
+NARCHY_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/narchy"
+NARCHY_STATE="${XDG_STATE_HOME:-$HOME/.local/state}/narchy"
+
+CURRENT="$NARCHY_STATE/current"
+NEXT="$NARCHY_STATE/next"
+LOCK="${XDG_RUNTIME_DIR:-/tmp}/narchy.lock"
+
+# May set NARCHY_APPS to override detection.
+# shellcheck disable=SC1091
+[[ -f $NARCHY_CONFIG/config ]] && source "$NARCHY_CONFIG/config"
+
+die() {
+  printf 'narchy: %s\n' "$*" >&2
+  exit 1
+}
+warn() { printf 'narchy: %s\n' "$*" >&2; }
+
+# --- lookup -----------------------------------------------------------------
+# User dir shadows the shipped one, so anything can be overridden by name.
+
+search_dirs() { printf '%s\n%s\n' "$NARCHY_CONFIG/$1" "$NARCHY_PATH/$1"; }
+
+find_first() {
+  local dir
+  while read -r dir; do
+    [[ -e $dir/$2 ]] && { printf '%s\n' "$dir/$2"; return 0; }
+  done < <(search_dirs "$1")
+  return 1
+}
+
+list_themes() {
+  {
+    local dir
+    while read -r dir; do
+      [[ -d $dir ]] && find -L "$dir" -mindepth 1 -maxdepth 1 \( -type d -o -type l \) -printf '%f\n'
+    done < <(search_dirs themes)
+  } | sort -u
+}
+
+list_apps() {
+  {
+    local dir
+    while read -r dir; do
+      [[ -d $dir ]] && find -L "$dir" -maxdepth 1 -name '*.sh' -printf '%f\n'
+    done < <(search_dirs apps)
+  } | sed 's/\.sh$//' | sort -u
+}
+
+# --- helpers for app definitions --------------------------------------------
+# Subshells inherit these, so app files can call them directly.
+
+theme_file() { printf '%s/%s\n' "$CURRENT" "$1"; }
+
+# Path with $HOME written as ~, for configs that want it that way.
+tilde() { printf '%s\n' "${1/#$HOME/\~}"; }
+
+seed_file() {
+  local dest=$1 src=$2
+  [[ -e $dest ]] && return 0
+  mkdir -p "$(dirname "$dest")"
+  if [[ -f $src ]]; then cp "$src" "$dest"; else : >"$dest"; fi
+}
+
+# Idempotent. Prepends, so anything the user writes below it wins.
+prepend_line() {
+  local file=$1 line=$2
+  mkdir -p "$(dirname "$file")"
+  [[ -e $file ]] || : >"$file"
+  grep -qxF "$line" "$file" && return 0
+  printf '%s\n%s' "$line" "$(cat "$file")" >"$file.narchy-tmp"
+  mv "$file.narchy-tmp" "$file"
+}
+
+# Idempotent. Appends, which is what CSS needs: later rules win.
+append_line() {
+  local file=$1 line=$2
+  mkdir -p "$(dirname "$file")"
+  [[ -e $file ]] || : >"$file"
+  grep -qxF "$line" "$file" && return 0
+  [[ -s $file && $(tail -c1 "$file") ]] && printf '\n' >>"$file"
+  printf '%s\n' "$line" >>"$file"
+}
+
+drop_line() {
+  local file=$1 line=$2
+  [[ -f $file ]] || return 0
+  grep -qxF "$line" "$file" || return 0
+  grep -vxF "$line" "$file" >"$file.narchy-tmp" || true
+  mv "$file.narchy-tmp" "$file"
+  # A config that held nothing but our line was ours to begin with.
+  [[ -s $file ]] || rm -f "$file"
+}
+
+# Rewrites `key = value` in place; appends when the key is absent.
+set_kv() {
+  local file=$1 key=$2 value=$3
+  mkdir -p "$(dirname "$file")"
+  [[ -e $file ]] || : >"$file"
+  if grep -qE "^[[:space:]]*$key[[:space:]]*=" "$file"; then
+    sed -i -E "s|^[[:space:]]*$key[[:space:]]*=.*|$key = $value|" "$file"
+  else
+    printf '%s = %s\n' "$key" "$value" >>"$file"
+  fi
+}
+
+# --- app definitions --------------------------------------------------------
+# Each apps/<name>.sh sets `templates` and may define detect/reload/link/unlink.
+
+app_run() {
+  local app=$1 fn=$2
+  shift 2
+  local file
+  file=$(find_first apps "$app.sh") || return 1
+  (
+    set -euo pipefail
+    APP="$app"
+    templates=""
+    detect() { command -v "$APP" >/dev/null 2>&1; }
+    reload() { :; }
+    link() { warn "$APP: nothing to link"; }
+    unlink() { :; }
+    _templates() { printf '%s\n' $templates; }
+    # shellcheck disable=SC1090
+    source "$file"
+    "$fn" "$@"
+  )
+}
+
+enabled_apps() {
+  if [[ -n ${NARCHY_APPS:-} ]]; then
+    printf '%s\n' ${NARCHY_APPS}
+    return 0
+  fi
+  local app
+  for app in $(list_apps); do
+    app_run "$app" detect && printf '%s\n' "$app"
+  done
+  # An undetected app last in the list must not fail the whole run.
+  return 0
+}
+
+# --- rendering --------------------------------------------------------------
+
+hex_to_rgb() {
+  local hex="${1#\#}"
+  printf '%d,%d,%d' "0x${hex:0:2}" "0x${hex:2:2}" "0x${hex:4:2}"
+}
+
+# colors.toml is flat key = "value", so a sed script is enough of an engine.
+build_sed_script() {
+  local key value
+  while IFS='=' read -r key value; do
+    key="${key//[\"\' ]/}"
+    [[ $key && $key != \#* ]] || continue
+    value="${value#*[\"\']}"
+    value="${value%%[\"\']*}"
+    printf 's|{{ %s }}|%s|g\n' "$key" "$value"
+    printf 's|{{ %s_strip }}|%s|g\n' "$key" "${value#\#}"
+    if [[ $value == \#* ]]; then
+      printf 's|{{ %s_rgb }}|%s|g\n' "$key" "$(hex_to_rgb "$value")"
+    fi
+  done <"$1"
+}
+
+normalise_name() { printf '%s\n' "$1" | tr '[:upper:] ' '[:lower:]-'; }
+
+title_case() { printf '%s\n' "$1" | sed -E 's/(^|-)([a-z])/\1\u\2/g; s/-/ /g'; }
+
+# --- commands ---------------------------------------------------------------
+
+cmd_set() {
+  [[ $# -ge 1 ]] || die "usage: narchy set <theme>"
+  local name theme_dir
+  name=$(normalise_name "$1")
+  theme_dir=$(find_first themes "$name") || die "no such theme: $name"
+
+  mkdir -p "$NARCHY_STATE"
+  exec 9>"$LOCK"
+  flock 9
+
+  rm -rf "$NEXT"
+  mkdir -p "$NEXT"
+  cp -rL "$theme_dir/." "$NEXT/"
+
+  local apps
+  apps=$(enabled_apps)
+
+  if [[ -f $NEXT/colors.toml ]]; then
+    local script
+    script=$(mktemp)
+    build_sed_script "$NEXT/colors.toml" >"$script"
+
+    local app tpl_name tpl
+    for app in $apps; do
+      while read -r tpl_name; do
+        [[ -n $tpl_name ]] || continue
+        # A theme shipping its own file wins over the template.
+        [[ -e $NEXT/$tpl_name ]] && continue
+        tpl=$(find_first templates "$tpl_name.tpl") || {
+          warn "$app: no template $tpl_name.tpl"
+          continue
+        }
+        sed -f "$script" "$tpl" >"$NEXT/$tpl_name"
+      done < <(app_run "$app" _templates)
+    done
+
+    rm -f "$script"
+  else
+    warn "$name has no colors.toml; nothing generated"
+  fi
+
+  printf '%s\n' "$name" >"$NEXT/.name"
+
+  rm -rf "$CURRENT"
+  mv "$NEXT" "$CURRENT"
+  flock -u 9
+
+  # Best effort: a headless run must still succeed.
+  local app
+  for app in $apps; do
+    app_run "$app" reload || warn "$app: reload failed"
+  done
+
+  printf 'narchy: %s\n' "$(title_case "$name")"
+}
+
+cmd_list() {
+  local name current
+  current=$(cat "$CURRENT/.name" 2>/dev/null || true)
+  while read -r name; do
+    if [[ $name == "$current" ]]; then
+      printf '* %s\n' "$(title_case "$name")"
+    else
+      printf '  %s\n' "$(title_case "$name")"
+    fi
+  done < <(list_themes)
+}
+
+cmd_current() {
+  [[ -f $CURRENT/.name ]] || die "no theme set"
+  cat "$CURRENT/.name"
+}
+
+cmd_apps() {
+  local app enabled
+  enabled=" $(enabled_apps | tr '\n' ' ')"
+  for app in $(list_apps); do
+    if [[ $enabled == *" $app "* ]]; then
+      printf '* %s\n' "$app"
+    else
+      printf '  %s\n' "$app"
+    fi
+  done
+}
+
+cmd_link() {
+  local apps=("$@")
+  [[ ${#apps[@]} -gt 0 ]] || mapfile -t apps < <(enabled_apps)
+  [[ -f $CURRENT/.name ]] || die "run 'narchy set <theme>' first"
+  local app
+  for app in "${apps[@]}"; do
+    app_run "$app" link && printf 'linked %s\n' "$app" || warn "$app: link failed"
+  done
+}
+
+cmd_unlink() {
+  local apps=("$@")
+  [[ ${#apps[@]} -gt 0 ]] || mapfile -t apps < <(enabled_apps)
+  local app
+  for app in "${apps[@]}"; do
+    app_run "$app" unlink && printf 'unlinked %s\n' "$app" || warn "$app: unlink failed"
+  done
+}
+
+cmd_help() {
+  cat <<'USAGE'
+narchy — apply one colour palette across a desktop's apps.
+
+  narchy set <theme>      render the palette and reload running apps
+  narchy list             list themes, marking the current one
+  narchy current          print the current theme
+  narchy apps             list app definitions, marking detected ones
+  narchy link [app...]    point app configs at narchy's output (opt-in)
+  narchy unlink [app...]  undo link
+
+`set` only ever writes inside narchy's own state directory. `link` is the
+only command that touches your app configs; skip it if you manage those
+yourself, and add the import lines shown in the README instead.
+USAGE
+}
+
+main() {
+  local cmd=${1:-help}
+  [[ $# -gt 0 ]] && shift
+  case $cmd in
+    set) cmd_set "$@" ;;
+    list) cmd_list ;;
+    current) cmd_current ;;
+    apps) cmd_apps ;;
+    link) cmd_link "$@" ;;
+    unlink) cmd_unlink "$@" ;;
+    help | -h | --help) cmd_help ;;
+    *) die "unknown command: $cmd (try 'narchy help')" ;;
+  esac
+}
+
+main "$@"
