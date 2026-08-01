@@ -3,11 +3,11 @@ Copyright (c) David Heinemeier Hansson, MIT licensed.
 
 Derived from Omarchy v3.8.4:
 
-  - themes/*/colors.toml — the palettes. The 22 slot keys are unchanged from
-    v3.8.4; the names past them (selection, muted, the background and
-    foreground shades, orange, brown) are their values from Omarchy master,
-    where the palette grew those names. Where the two versions overlap they
-    agree, so the two halves are the same colours either way.
+  - the nineteen palettes it ships, in themes/*/colors.toml. The 22 slot keys
+    are unchanged from v3.8.4; the names past them (selection, muted, the
+    background and foreground shades, orange, brown) are their values from
+    Omarchy master, where the palette grew those names. Where the two versions
+    overlap they agree, so the two halves are the same colours either way.
   - templates/btop.theme.tpl — unchanged
   - templates/ghostty.conf.tpl — unchanged
   - the {{ key }} / {{ key_strip }} / {{ key_rgb }} template substitutions,
@@ -19,3 +19,29 @@ Written for narchy: the app definition format, detection, the link/unlink
 commands, and the remaining templates.
 
 A full copy of Omarchy's licence is in LICENSE-omarchy.
+
+The remaining palettes come from elsewhere. What is taken is the colour values
+— the 22 slots, transcribed into a colors.toml; the names past them are chosen
+here, from that palette's own ramp where it has one. No file, template or code
+from any of these projects is carried:
+
+  - themes/dracula      — Dracula, https://github.com/dracula/dracula-theme,
+                          Copyright (c) Zeno Rocha, MIT licensed
+  - themes/solarized    — Solarized dark, https://github.com/altercation/solarized,
+                          Copyright (c) Ethan Schoonover, MIT licensed
+  - themes/one-dark     — onedark.vim, https://github.com/joshdick/onedark.vim,
+                          Copyright (c) Joshua Dick, MIT licensed
+  - themes/aetheria     — Aetheria, https://github.com/JJDizz1L/aetheria,
+                          MIT licensed
+  - themes/copper-night — Catppuccin Mocha,
+                          https://github.com/catppuccin/catppuccin,
+                          Copyright (c) Catppuccin, MIT licensed. Every value
+                          is a Mocha one: the palette is that ramp on the Crust
+                          background with Peach as the accent, which is the
+                          arrangement Copper Night chose,
+                          https://github.com/hembramnishant50-glitch/omarchy-coppernight-theme
+  - themes/retro-pc     — Omarchy RetroPC theme,
+                          https://github.com/rondilley/omarchy-retropc-theme,
+                          Copyright (c) Ron Dilley, GPL-3.0 licensed upstream.
+                          narchy is MIT: the amber values are recorded here as
+                          data, and none of that project's files are included.
