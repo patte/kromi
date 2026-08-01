@@ -21,6 +21,14 @@ detect() { command -v code >/dev/null 2>&1; }
 # base theme's, which is why the template writes them out even though they
 # only repeat {{ background }}: without them a light palette leaves a black
 # gutter down the side of a white editor.
+#
+# So the template names every surface it can, and colorTheme is set to the
+# stock Light or Dark Modern to match the palette's mode. That is the one
+# thing colours cannot do for themselves: webviews — markdown preview,
+# notebook output, extension panels — style themselves from the theme's kind
+# rather than from any colour we name, and would stay dark under a light
+# palette. It is also the only setting here that was likely deliberate, so
+# link backs it up and unlink puts it back.
 apply() {
   local generated
   generated=$(theme_file vscode.json)
@@ -33,12 +41,15 @@ apply() {
   }
 
   # Merge our colours over any already there, and leave the rest of the file
-  # alone. tokenColorCustomizations is replaced outright, which is what the
-  # backup is for.
+  # alone. tokenColorCustomizations and colorTheme are replaced outright,
+  # which is what the backup is for.
   if ! jq --slurpfile new "$generated" '
         ."workbench.colorCustomizations" =
           ((."workbench.colorCustomizations" // {}) + $new[0]["workbench.colorCustomizations"])
         | ."editor.tokenColorCustomizations" = $new[0]["editor.tokenColorCustomizations"]
+        | if $new[0]["workbench.colorTheme"] then
+            ."workbench.colorTheme" = $new[0]["workbench.colorTheme"]
+          else . end
       ' "$settings" >"$settings.narchy-tmp" 2>/dev/null; then
     rm -f "$settings.narchy-tmp"
     warn "cannot parse $settings; leaving it alone"
@@ -58,7 +69,8 @@ link() {
     mkdir -p "$(dirname "$backup")"
     if [[ -f $settings ]] && command -v jq >/dev/null 2>&1; then
       jq '{"workbench.colorCustomizations": ."workbench.colorCustomizations",
-           "editor.tokenColorCustomizations": ."editor.tokenColorCustomizations"}' \
+           "editor.tokenColorCustomizations": ."editor.tokenColorCustomizations",
+           "workbench.colorTheme": ."workbench.colorTheme"}' \
         "$settings" >"$backup" 2>/dev/null || printf '{}\n' >"$backup"
     else
       printf '{}\n' >"$backup"
@@ -74,7 +86,8 @@ unlink() {
   if [[ -f $backup ]]; then
     jq --slurpfile old "$backup" '
       . as $s
-      | reduce ("workbench.colorCustomizations", "editor.tokenColorCustomizations") as $k
+      | reduce ("workbench.colorCustomizations", "editor.tokenColorCustomizations",
+                "workbench.colorTheme") as $k
           ($s; if ($old[0][$k] == null) then del(.[$k]) else .[$k] = $old[0][$k] end)
     ' "$settings" >"$settings.narchy-tmp" 2>/dev/null &&
       mv "$settings.narchy-tmp" "$settings" || rm -f "$settings.narchy-tmp"

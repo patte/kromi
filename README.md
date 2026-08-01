@@ -120,11 +120,22 @@ rereading the file. A generated theme extension therefore leaves the editor a
 palette behind until you reload the window. `workbench.colorCustomizations` is
 the one thing it applies immediately.
 
-So narchy merges two keys, `workbench.colorCustomizations` and
-`editor.tokenColorCustomizations`, into your `settings.json`, and does it again
-on every switch. Colour keys you already had are kept, and everything else in
-the file is left alone. `narchy link vscode` saves whatever those two keys held
-first, and `narchy unlink vscode` puts it back.
+So narchy merges three keys — `workbench.colorCustomizations`,
+`editor.tokenColorCustomizations` and `workbench.colorTheme` — into your
+`settings.json`, and does it again on every switch. Everything else in the file
+is left alone. `narchy link vscode` saves whatever those three keys held first,
+and `narchy unlink vscode` puts them back.
+
+Customisations replace only the keys they name, and a key VS Code defines in
+terms of another one — `editorGutter.background` is `editor.background`,
+`breadcrumb.background` likewise — takes its value from the theme underneath
+rather than from ours. So the template names every surface it can, which is why
+one colour key you set yourself may be overwritten while linked, and why
+`colorTheme` is set to stock Light or Dark Modern to match the palette. That
+last one is the only thing colours cannot do for themselves: webviews —
+markdown preview, notebook output, extension panels — take their light or dark
+from the theme's kind, not from any colour, and would stay dark under a light
+palette.
 
 This only ever happens after linking. Until then `narchy set` does not open
 your `settings.json` at all.

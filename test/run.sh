@@ -61,7 +61,7 @@ detect() { true; }
 reload() { :; }
 EOF
 
-printf 'a={{ background_rgb }} b={{ background_strip }} mode={{ mode }}\n' \
+printf 'a={{ background_rgb }} b={{ background_strip }} mode={{ mode }} title={{ mode_title }}\n' \
   >"$XDG_CONFIG_HOME/narchy/templates/probe.conf.tpl"
 
 # Sorts last, so it catches a failed detection ending the whole run.
@@ -108,11 +108,11 @@ check $? "narrowing NARCHY_APPS still renders every app's files"
 
 # The _rgb and _strip forms are the two derived substitutions templates rely on.
 NARCHY_APPS=probe "$NARCHY" set tokyo-night >/dev/null
-grep -qx 'a=26,27,38 b=1a1b26 mode=dark' "$XDG_STATE_HOME/narchy/current/probe.conf"
+grep -qx 'a=26,27,38 b=1a1b26 mode=dark title=Dark' "$XDG_STATE_HOME/narchy/current/probe.conf"
 check $? "derived _rgb, _strip and mode substitutions"
 
 NARCHY_APPS=probe "$NARCHY" set white >/dev/null
-grep -q 'mode=light' "$XDG_STATE_HOME/narchy/current/probe.conf"
+grep -q 'mode=light title=Light' "$XDG_STATE_HOME/narchy/current/probe.conf"
 check $? "mode follows background luminance"
 
 # A theme shipping its own file must win over the template.
@@ -142,7 +142,8 @@ echo "window#waybar { padding: 0; }" >"$XDG_CONFIG_HOME/waybar/style.css"
 cat >"$XDG_CONFIG_HOME/Code/User/settings.json" <<'EOF'
 {
   "editor.fontSize": 13,
-  "workbench.colorCustomizations": { "titleBar.border": "#abcdef" }
+  "workbench.colorTheme": "Monokai",
+  "workbench.colorCustomizations": { "notebook.editorBackground": "#abcdef" }
 }
 EOF
 cp -r "$XDG_CONFIG_HOME" "$SANDBOX/config.before"
@@ -174,7 +175,7 @@ check $? "vscode link leaves unrelated settings alone"
 [[ $(jq -r '."workbench.colorCustomizations"."editor.background"' "$settings") == "#2e3440" ]]
 check $? "vscode link writes the palette into colorCustomizations"
 
-[[ $(jq -r '."workbench.colorCustomizations"."titleBar.border"' "$settings") == "#abcdef" ]]
+[[ $(jq -r '."workbench.colorCustomizations"."notebook.editorBackground"' "$settings") == "#abcdef" ]]
 check $? "vscode link keeps colour keys the user already had"
 
 # vscode is the one app written to on `set`, so it has to follow a switch.
@@ -196,6 +197,17 @@ done
 [[ -z $missing ]]
 check $? "vscode names every surface that follows the editor background"
 [[ -z $missing ]] || printf '       missing:%s\n' "$missing"
+
+# Webviews take their light or dark from the theme's kind, not from any colour
+# we name, so the base theme has to match the palette.
+[[ $(jq -r '."workbench.colorTheme"' "$settings") == "Default Dark Modern" ]]
+check $? "vscode gets a dark base theme for a dark palette"
+
+NARCHY_APPS=vscode "$NARCHY" set catppuccin-latte >/dev/null
+[[ $(jq -r '."workbench.colorTheme"' "$settings") == "Default Light Modern" ]]
+check $? "vscode gets a light base theme for a light palette"
+
+NARCHY_APPS=vscode "$NARCHY" set tokyo-night >/dev/null
 
 echo "unlinking"
 

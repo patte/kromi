@@ -243,6 +243,12 @@ build_sed_script() {
     colors[mode]=$(luma_mode "${colors[background]}")
   fi
 
+  # vscode names its own themes "Default Light Modern", so the capitalised
+  # form has to be available as well as the lower case one neovim wants.
+  if [[ -n ${colors[mode]:-} ]]; then
+    colors[mode_title]=$(title_case "${colors[mode]}")
+  fi
+
   for key in "${!colors[@]}"; do
     value="${colors[$key]}"
     printf 's|{{ %s }}|%s|g\n' "$key" "$value"
