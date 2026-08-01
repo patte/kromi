@@ -296,25 +296,31 @@ check $? "unlink hands vscode settings back exactly as they were"
 [[ $(jq -r '."workbench.colorCustomizations"."editor.background" // "none"' "$settings") == "none" ]]
 check $? "set leaves vscode alone when it is not linked"
 
-echo "demo"
+echo "interactive"
 
 NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
-NARCHY_APPS=dummy "$NARCHY" demo 0 >"$SANDBOX/demo.out" 2>/dev/null </dev/null
+NARCHY_APPS=dummy "$NARCHY" interactive 0 >"$SANDBOX/i.out" 2>/dev/null </dev/null
 
 # Every theme narchy lists, which includes any the sandbox added.
-"$NARCHY" list >"$SANDBOX/demo-list.txt"
-[[ $(grep -c '^\[' "$SANDBOX/demo.out") == "$(wc -l <"$SANDBOX/demo-list.txt")" ]]
-check $? "demo visits every theme"
+"$NARCHY" list >"$SANDBOX/i-list.txt"
+[[ $(grep -c '^\[' "$SANDBOX/i.out") == "$(wc -l <"$SANDBOX/i-list.txt")" ]]
+check $? "interactive visits every theme"
 
 # Running to the end must not strand you on whichever theme sorts last.
 [[ $("$NARCHY" current) == nord ]]
-check $? "demo restores the theme it started from"
+check $? "interactive restores the theme it started from"
 
-grep -q 'narchy set' "$SANDBOX/demo.out"
-check $? "demo says how to apply one you liked"
+grep -q 'narchy set' "$SANDBOX/i.out"
+check $? "interactive says how to apply one you liked"
 
-! NARCHY_APPS=dummy "$NARCHY" demo notanumber >/dev/null 2>&1 </dev/null
-check $? "demo rejects a non-numeric delay"
+! NARCHY_APPS=dummy "$NARCHY" interactive notanumber >/dev/null 2>&1 </dev/null
+check $? "interactive rejects a non-numeric delay"
+
+# Both short forms reach the same command.
+NARCHY_APPS=dummy "$NARCHY" i 0 >"$SANDBOX/i-alias.out" 2>/dev/null </dev/null
+NARCHY_APPS=dummy "$NARCHY" demo 0 >"$SANDBOX/demo-alias.out" 2>/dev/null </dev/null
+diff -q "$SANDBOX/i-alias.out" "$SANDBOX/demo-alias.out" >/dev/null
+check $? "i and demo are aliases for interactive"
 
 # The keys only exist when there is a terminal to read them from, so these run
 # narchy under a pty with the keystrokes queued ahead of it.
@@ -364,56 +370,63 @@ sys.exit(0)
   }
 
   NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
-  NARCHY_APPS=dummy pty x "$NARCHY" demo 5 >"$SANDBOX/demo-auto.out" 2>&1 || true
-  grep -q 'auto on, 5s' "$SANDBOX/demo-auto.out"
-  check $? "demo with an interval starts rolling"
+  NARCHY_APPS=dummy pty x "$NARCHY" i 5 >"$SANDBOX/i-auto.out" 2>&1 || true
+  grep -q 'auto on, 5s' "$SANDBOX/i-auto.out"
+  check $? "interactive with an interval starts rolling"
 
-  NARCHY_APPS=dummy pty x "$NARCHY" demo >"$SANDBOX/demo-manual.out" 2>&1 || true
-  ! grep -q 'auto on' "$SANDBOX/demo-manual.out"
-  check $? "demo without one waits for a key"
+  NARCHY_APPS=dummy pty x "$NARCHY" i >"$SANDBOX/i-manual.out" 2>&1 || true
+  ! grep -q 'auto on' "$SANDBOX/i-manual.out"
+  check $? "interactive without one waits for a key"
+
+  # It opens on the whole shelf: `narchy list`, star and all, before any key.
+  # tr first: a terminal ends even a blank line with a carriage return.
+  diff <(tr -d '\r' <"$SANDBOX/i-manual.out" | sed -n '1,/^$/p' | sed '/^$/d') \
+    <(NARCHY_APPS=dummy "$NARCHY" list) >/dev/null
+  check $? "interactive opens with the theme list, starred as list does"
 
   # The theme you arrived with is the first one printed, and named as such.
-  [[ $(grep -m1 '^\[' "$SANDBOX/demo-manual.out") == *"nord  (yours)"* ]]
-  check $? "demo marks the theme you started on"
+  [[ $(grep -m1 '^\[' "$SANDBOX/i-manual.out") == *"nord  (yours)"* ]]
+  check $? "interactive marks the theme you started on"
 
   # tr, because a terminal ends its lines with a carriage return too.
   showing_of() { grep '^\[' "$1" | tail -1 | tr -d '\r' | awk '{print $2}'; }
 
   # r steps back to the theme you came with without ending the browse, so the
   # x that follows is what stops it — and stops it on yours.
-  NARCHY_APPS=dummy pty 'nnrx' "$NARCHY" demo >"$SANDBOX/demo-restore.out" 2>&1 || true
-  [[ $(showing_of "$SANDBOX/demo-restore.out") == nord ]]
+  NARCHY_APPS=dummy pty 'nnrx' "$NARCHY" i >"$SANDBOX/i-restore.out" 2>&1 || true
+  [[ $(showing_of "$SANDBOX/i-restore.out") == nord ]]
   check $? "r steps back to the theme you came with"
 
-  grep -q '^kept nord' "$SANDBOX/demo-restore.out"
+  grep -q '^kept nord' "$SANDBOX/i-restore.out"
   check $? "r keeps browsing, so x is still what ends it"
 
   [[ $(NARCHY_APPS=dummy "$NARCHY" current) == nord ]]
   check $? "r leaves the theme where it found it"
 
   # x stops on whatever is showing rather than on the one you came with.
-  NARCHY_APPS=dummy pty 'nx' "$NARCHY" demo >"$SANDBOX/demo-keep.out" 2>&1 || true
-  showing=$(showing_of "$SANDBOX/demo-keep.out")
-  grep -q "^kept $showing" "$SANDBOX/demo-keep.out"
+  NARCHY_APPS=dummy pty 'nx' "$NARCHY" i >"$SANDBOX/i-keep.out" 2>&1 || true
+  showing=$(showing_of "$SANDBOX/i-keep.out")
+  grep -q "^kept $showing" "$SANDBOX/i-keep.out"
   check $? "x keeps the theme it was showing"
 
   [[ -n $showing && $showing != nord && $(NARCHY_APPS=dummy "$NARCHY" current) == "$showing" ]]
   check $? "x leaves the theme it stopped on"
 
   # Ctrl-C is x: the trap fires at once but does not make a blocked read
-  # return, so a demo that waits on the keypress itself sits there ignoring it.
+  # return, so a browse that waits on the keypress itself sits there ignoring
+  # it.
   NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
-  NARCHY_APPS=dummy pty 'n\x03' "$NARCHY" demo >"$SANDBOX/demo-int.out" 2>&1 || true
-  grep -q '^kept ' "$SANDBOX/demo-int.out"
-  check $? "ctrl-c stops the demo"
+  NARCHY_APPS=dummy pty 'n\x03' "$NARCHY" i >"$SANDBOX/i-int.out" 2>&1 || true
+  grep -q '^kept ' "$SANDBOX/i-int.out"
+  check $? "ctrl-c stops the browse"
 
-  showing=$(showing_of "$SANDBOX/demo-int.out")
+  showing=$(showing_of "$SANDBOX/i-int.out")
   [[ -n $showing && $showing != nord && $(NARCHY_APPS=dummy "$NARCHY" current) == "$showing" ]]
   check $? "ctrl-c keeps the theme it was showing, not the one you came with"
 
   NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
 else
-  echo "  skip demo key handling (no python3 for a pty)"
+  echo "  skip interactive key handling (no python3 for a pty)"
 fi
 
 echo "background selection"

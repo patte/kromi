@@ -26,8 +26,8 @@ The second one is optional and does nothing unless you run it — see Wallpapers
 ```
 narchy set <theme>      render the palette and reload running apps
 narchy list             list themes, marking the current one
-narchy demo [seconds]   browse themes: n/p step, a auto, r restore, x keep
-                        with seconds, starts rolling at that interval
+narchy interactive      list themes, then browse them: n/p step, a auto,
+  (i, demo) [seconds]   r restore, x keep; with seconds, starts rolling
 narchy current          print the current theme
 narchy background next  cycle to this theme's next wallpaper
 narchy background apply reapply the current one (for autostart)
@@ -39,13 +39,19 @@ narchy unlink [app...]  undo link
 ## Picking one
 
 ```sh
-narchy demo        # step by hand, a key at a time
-narchy demo 8      # roll on its own, 8 seconds a theme
+narchy i        # step by hand, a key at a time
+narchy i 8      # roll on its own, 8 seconds a theme
 ```
 
-Applies a theme, prints its name, and waits for a key:
+`interactive` is the full name; `i` and `demo` both reach it. It opens with
+every theme it knows, starred where you are now — the same listing `narchy
+list` gives — then applies a theme, prints its name, and waits for a key:
 
 ```
+  Nord
+* Osaka Jade
+  Retro 82
+
 n next   p prev   a auto   1-9 secs   r restore   x keep
 
 [13/19] osaka-jade  (yours)

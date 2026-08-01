@@ -425,16 +425,26 @@ cmd_set() {
   printf 'narchy: %s\n' "$(title_case "$name")"
 }
 
-cmd_list() {
-  local name current
-  current=$(cat "$CURRENT/.name" 2>/dev/null || true)
-  while read -r name; do
+# Every theme, with a star on one of them. Shared by `list` and the header
+# `interactive` prints, so the two never drift apart.
+theme_shelf() {
+  local current=$1 name
+  shift
+  for name in "$@"; do
     if [[ $name == "$current" ]]; then
       printf '* %s\n' "$(title_case "$name")"
     else
       printf '  %s\n' "$(title_case "$name")"
     fi
-  done < <(list_themes)
+  done
+}
+
+cmd_list() {
+  local current
+  current=$(cat "$CURRENT/.name" 2>/dev/null || true)
+  local -a all
+  mapfile -t all < <(list_themes)
+  theme_shelf "$current" "${all[@]}"
 }
 
 cmd_current() {
@@ -444,7 +454,7 @@ cmd_current() {
 
 # Without a terminal there are no keys to read, so roll through unattended.
 # Ctrl-C keeps whatever is showing; reaching the end puts back what you had.
-demo_roll() {
+interactive_roll() {
   local delay=$1 original=$2
   shift 2
   local -a all=("$@")
@@ -471,7 +481,7 @@ demo_roll() {
   fi
 }
 
-demo_interactive() {
+interactive_browse() {
   local delay=$1 auto=$2 original=$3
   shift 3
   local -a all=("$@")
@@ -486,6 +496,12 @@ demo_interactive() {
       break
     fi
   done
+
+  # What n/p can reach, and where you are standing before you start walking.
+  # A snapshot: the star stays on the theme you arrived with, which is the one
+  # `r` and `x` are measured against.
+  theme_shelf "$original" "${all[@]}"
+  printf '\n'
 
   # r sits with the keys that keep browsing; x is the one that ends it.
   printf 'n next   p prev   a auto   1-9 secs   r restore   x keep\n'
@@ -563,9 +579,9 @@ demo_interactive() {
   done
 }
 
-cmd_demo() {
+cmd_interactive() {
   local delay=${1:-3}
-  [[ $delay =~ ^[0-9]+$ ]] || die "usage: narchy demo [seconds]"
+  [[ $delay =~ ^[0-9]+$ ]] || die "usage: narchy interactive [seconds]"
 
   # Naming an interval is asking to be stepped through; without one, wait for
   # a key. Unattended runs roll either way — there is nothing to wait on.
@@ -580,9 +596,9 @@ cmd_demo() {
   original=$(cat "$CURRENT/.name" 2>/dev/null || true)
 
   if [[ -t 0 ]]; then
-    demo_interactive "$delay" "$auto" "$original" "${all[@]}"
+    interactive_browse "$delay" "$auto" "$original" "${all[@]}"
   else
-    demo_roll "$delay" "$original" "${all[@]}"
+    interactive_roll "$delay" "$original" "${all[@]}"
   fi
 }
 
@@ -660,8 +676,8 @@ narchy — apply one colour palette across a desktop's apps.
 
   narchy set <theme>      render the palette and reload running apps
   narchy list             list themes, marking the current one
-  narchy demo [seconds]   browse themes: n/p step, a auto, r restore, x keep
-                          with seconds, starts rolling at that interval
+  narchy interactive      list themes, then browse them: n/p step, a auto,
+    (i, demo) [seconds]   r restore, x keep; with seconds, starts rolling
   narchy current          print the current theme
   narchy background next  cycle to this theme's next wallpaper
   narchy background apply reapply the current one (for autostart)
@@ -683,7 +699,7 @@ main() {
     list) cmd_list ;;
     current) cmd_current ;;
     background | bg) cmd_background "$@" ;;
-    demo) cmd_demo "$@" ;;
+    interactive | i | demo) cmd_interactive "$@" ;;
     apps) cmd_apps ;;
     link) cmd_link "$@" ;;
     unlink) cmd_unlink "$@" ;;
