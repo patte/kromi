@@ -404,8 +404,8 @@ demo_roll() {
 }
 
 demo_interactive() {
-  local delay=$1 original=$2
-  shift 2
+  local delay=$1 auto=$2 original=$3
+  shift 3
   local -a all=("$@")
   local count=${#all[@]}
 
@@ -415,19 +415,25 @@ demo_interactive() {
     [[ ${all[$i]} == "$original" ]] && index=$i && break
   done
 
-  printf 'n next   p prev   a auto   1-9 secs   o keep   x restore\n\n'
+  printf 'n next   p prev   a auto   1-9 secs   o keep   x restore\n'
+  ((auto)) && printf 'auto on, %ss — a stops it\n' "$delay"
+  printf '\n'
 
   # Ctrl-C is treated as `o`: quitting abruptly should not undo a theme you
   # stopped on to look at.
   local interrupted=0
   trap 'interrupted=1' INT
 
-  local auto=0 applied="" key
+  # The first line out is whatever you were already on, and `x` comes back
+  # here, so say which one that is every time the browse passes through it.
+  local applied="" key note
   while true; do
     if [[ ${all[$index]} != "$applied" ]]; then
       cmd_set "${all[$index]}" >/dev/null
       applied="${all[$index]}"
-      printf '[%2d/%d] %s\n' "$((index + 1))" "$count" "$applied"
+      note=""
+      [[ -n $original && $applied == "$original" ]] && note='  (yours)'
+      printf '[%2d/%d] %s%s\n' "$((index + 1))" "$count" "$applied" "$note"
     fi
 
     key=""
@@ -473,6 +479,11 @@ cmd_demo() {
   local delay=${1:-3}
   [[ $delay =~ ^[0-9]+$ ]] || die "usage: narchy demo [seconds]"
 
+  # Naming an interval is asking to be stepped through; without one, wait for
+  # a key. Unattended runs roll either way — there is nothing to wait on.
+  local auto=0
+  (($# > 0)) && auto=1
+
   local -a all
   mapfile -t all < <(list_themes)
   ((${#all[@]})) || die "no themes"
@@ -481,7 +492,7 @@ cmd_demo() {
   original=$(cat "$CURRENT/.name" 2>/dev/null || true)
 
   if [[ -t 0 ]]; then
-    demo_interactive "$delay" "$original" "${all[@]}"
+    demo_interactive "$delay" "$auto" "$original" "${all[@]}"
   else
     demo_roll "$delay" "$original" "${all[@]}"
   fi
@@ -562,6 +573,7 @@ narchy — apply one colour palette across a desktop's apps.
   narchy set <theme>      render the palette and reload running apps
   narchy list             list themes, marking the current one
   narchy demo [seconds]   browse themes: n/p step, a auto, o keep, x restore
+                          with seconds, starts rolling at that interval
   narchy current          print the current theme
   narchy background next  cycle to this theme's next wallpaper
   narchy background apply reapply the current one (for autostart)

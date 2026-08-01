@@ -223,6 +223,55 @@ check $? "demo says how to apply one you liked"
 ! NARCHY_APPS=dummy "$NARCHY" demo notanumber >/dev/null 2>&1 </dev/null
 check $? "demo rejects a non-numeric delay"
 
+# The keys only exist when there is a terminal to read them from, so these run
+# narchy under a pty with the keystrokes queued ahead of it.
+if command -v python3 >/dev/null 2>&1; then
+  pty() {
+    local keys=$1
+    shift
+    python3 -c '
+import os, pty, subprocess, sys
+
+keys, cmd = sys.argv[1].encode(), sys.argv[2:]
+master, slave = pty.openpty()
+child = subprocess.Popen(cmd, stdin=slave, stdout=slave, stderr=slave)
+os.close(slave)
+os.write(master, keys)
+
+out = b""
+while True:
+    try:
+        chunk = os.read(master, 4096)
+    except OSError:
+        break
+    if not chunk:
+        break
+    out += chunk
+sys.stdout.write(out.decode(errors="replace"))
+sys.exit(child.wait())
+' "$keys" "$@"
+  }
+
+  NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
+  NARCHY_APPS=dummy pty x "$NARCHY" demo 5 >"$SANDBOX/demo-auto.out" 2>&1 || true
+  grep -q 'auto on, 5s' "$SANDBOX/demo-auto.out"
+  check $? "demo with an interval starts rolling"
+
+  NARCHY_APPS=dummy pty x "$NARCHY" demo >"$SANDBOX/demo-manual.out" 2>&1 || true
+  ! grep -q 'auto on' "$SANDBOX/demo-manual.out"
+  check $? "demo without one waits for a key"
+
+  # The theme you arrived with is the first one printed, and named as such.
+  [[ $(grep -m1 '^\[' "$SANDBOX/demo-manual.out") == *"nord  (yours)"* ]]
+  check $? "demo marks the theme you started on"
+
+  # Whichever way it started, x is what puts your own theme back.
+  [[ $("$NARCHY" current) == nord ]]
+  check $? "demo restores on x"
+else
+  echo "  skip demo key handling (no python3 for a pty)"
+fi
+
 echo "background selection"
 
 BG="$XDG_CONFIG_HOME/narchy/backgrounds"

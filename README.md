@@ -27,6 +27,7 @@ The second one is optional and does nothing unless you run it — see Wallpapers
 narchy set <theme>      render the palette and reload running apps
 narchy list             list themes, marking the current one
 narchy demo [seconds]   browse themes: n/p step, a auto, o keep, x restore
+                        with seconds, starts rolling at that interval
 narchy current          print the current theme
 narchy background next  cycle to this theme's next wallpaper
 narchy background apply reapply the current one (for autostart)
@@ -38,8 +39,8 @@ narchy unlink [app...]  undo link
 ## Picking one
 
 ```sh
-narchy demo        # auto steps every 3 seconds
-narchy demo 8      # ...when you turn auto on
+narchy demo        # step by hand, a key at a time
+narchy demo 8      # roll on its own, 8 seconds a theme
 ```
 
 Applies a theme, prints its name, and waits for a key:
@@ -47,7 +48,7 @@ Applies a theme, prints its name, and waits for a key:
 ```
 n next   p prev   a auto   1-9 secs   o keep   x restore
 
-[13/19] osaka-jade
+[13/19] osaka-jade  (yours)
 [14/19] retro-82
 ```
 
@@ -59,11 +60,12 @@ n next   p prev   a auto   1-9 secs   o keep   x restore
 | `o` | stop here and keep this theme |
 | `x` | stop and put back the one you started with |
 
-It begins on your current theme, so `p` reaches the one before it, and it
-steps by hand until you press `a`. Ctrl-C behaves like `o`: quitting abruptly
-should not undo a theme you stopped on to look at. The names stay in your
-scrollback either way, so one you liked and missed is a `narchy set <name>`
-away.
+It begins on your current theme — marked `(yours)`, since that is where `x`
+comes back to — so `p` reaches the one before it. Naming an interval starts it
+rolling at that interval; with no interval it steps by hand until you press
+`a`, then every 3 seconds. Ctrl-C behaves like `o`: quitting abruptly should
+not undo a theme you stopped on to look at. The names stay in your scrollback
+either way, so one you liked and missed is a `narchy set <name>` away.
 
 With no terminal to read keys from — piped, or from a script — it just rolls
 through unattended and restores what you had at the end.
