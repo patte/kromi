@@ -163,6 +163,33 @@ color0 = "#32344a"
 # ... through color15
 ```
 
+Those 22 are all a theme needs. The shipped ones also carry a handful of names
+the 16 slots cannot express — a surface a shade off the background, dim text
+that is not the same colour as that surface, a selection tint:
+
+```toml
+selection = "#292e42"
+muted = "#414868"
+lighter_background = "#24283b"
+dark_background = "#13141c"
+darker_background = "#0e0e14"
+light_foreground = "#b4bee6"
+dark_foreground = "#565f89"
+bright_foreground = "#c0caf5"
+orange = "#eb927b"
+brown = "#75493d"
+```
+
+Every one of them is optional and falls back to its nearest slot — `muted` to
+`color8`, `lighter_background` to `color0` — so a palette that names only the
+22 renders every template. Naming them is how a theme stops the fallbacks
+guessing: in several palettes `color0` and `color8` hold the same value, which
+puts dim text on a surface of exactly its own colour.
+
+The hue names — `red`, `green`, `yellow`, `blue`, `magenta`, `cyan` and their
+`bright_` forms — are always aliases for `color1`–`color14`, so templates can
+read as what they mean. Only the slots are authoritative.
+
 Drop your own in `~/.config/narchy/themes/<name>/`. That directory shadows the
 shipped one, so a theme of the same name replaces it.
 

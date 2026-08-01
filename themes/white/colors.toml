@@ -29,3 +29,13 @@ color12 = "#1a1a1a"
 color13 = "#2e2e2e"
 color14 = "#3e3e3e"
 color15 = "#000000"
+
+# Shades and names the 16 slots cannot express
+selection = "#c0c0c0"
+muted = "#808080"
+lighter_background = "#c0c0c0"
+dark_background = "#f5f5f5"
+darker_background = "#e8e8e8"
+light_foreground = "#000000"
+dark_foreground = "#c0c0c0"
+bright_foreground = "#000000"

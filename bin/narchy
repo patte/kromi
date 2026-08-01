@@ -249,6 +249,28 @@ build_sed_script() {
     colors[mode_title]=$(title_case "${colors[mode]}")
   fi
 
+  # Names beyond the 16 slots. The hues are pure aliases — every shipped
+  # palette has red identical to color1 — and exist so a template can read as
+  # what it means. The shades are not derivable and a palette that wants them
+  # right has to say so; falling back to the nearest slot keeps a hand-written
+  # 16-colour palette rendering every template rather than failing on one.
+  local -A derived=(
+    [red]=color1 [green]=color2 [yellow]=color3 [blue]=color4
+    [magenta]=color5 [cyan]=color6 [orange]=color3 [brown]=color3
+    [bright_red]=color9 [bright_green]=color10 [bright_yellow]=color11
+    [bright_blue]=color12 [bright_magenta]=color13 [bright_cyan]=color14
+    [muted]=color8 [selection]=selection_background
+    [lighter_background]=color0 [dark_background]=color0 [darker_background]=color0
+    [light_foreground]=foreground [dark_foreground]=color8
+    [bright_foreground]=color15
+  )
+  local from
+  for key in "${!derived[@]}"; do
+    [[ -z ${colors[$key]:-} ]] || continue
+    from=${derived[$key]}
+    [[ -n ${colors[$from]:-} ]] && colors[$key]=${colors[$from]}
+  done
+
   for key in "${!colors[@]}"; do
     value="${colors[$key]}"
     printf 's|{{ %s }}|%s|g\n' "$key" "$value"

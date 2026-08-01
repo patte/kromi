@@ -77,17 +77,50 @@ set +e
 
 echo "rendering"
 
-# Every theme must render every template with nothing left unsubstituted.
+# Every theme must render every template with nothing left unsubstituted, and
+# a surface must never come out the same colour as the dim text on it — with
+# color0 and color8 holding the same value in several palettes, using the
+# slots for both made hover rows and breadcrumbs illegible.
 unresolved=""
+collided=""
 for theme_dir in "$ROOT"/themes/*/; do
   theme=$(basename "$theme_dir")
   NARCHY_APPS=dummy "$NARCHY" set "$theme" >/dev/null
   if grep -rq '{{' "$XDG_STATE_HOME/narchy/current/"; then
     unresolved="$unresolved $theme"
   fi
+  gen="$XDG_STATE_HOME/narchy/current/vscode.json"
+  surface=$(jq -r '."workbench.colorCustomizations"."list.hoverBackground"' "$gen")
+  dim=$(jq -r '."workbench.colorCustomizations"."breadcrumb.foreground"' "$gen")
+  if [[ $surface == "$dim" ]]; then
+    collided="$collided vscode/$theme"
+  fi
+
+  nvim_theme="$XDG_STATE_HOME/narchy/current/neovim.lua"
+  surface=$(sed -n 's/.*surface = "\(#[0-9a-fA-F]*\)".*/\1/p' "$nvim_theme")
+  dim=$(sed -n 's/.*muted = "\(#[0-9a-fA-F]*\)".*/\1/p' "$nvim_theme")
+  if [[ $surface == "$dim" ]]; then
+    collided="$collided neovim/$theme"
+  fi
 done
 [[ -z $unresolved ]]
 check $? "all themes render with no unresolved tokens ($(ls "$ROOT/themes" | wc -l) themes)"
+
+[[ -z $collided ]]
+check $? "no theme paints dim text the colour of the surface under it"
+[[ -z $collided ]] || printf '       collided:%s\n' "$collided"
+
+# The names past the 16 slots are not derivable, so a palette written by hand
+# may well omit them. Every template still has to render.
+mkdir -p "$XDG_CONFIG_HOME/narchy/themes/plain"
+{
+  printf '%s\n' 'accent = "#7aa2f7"' 'cursor = "#c0caf5"' 'foreground = "#a9b1d6"' \
+    'background = "#1a1b26"' 'selection_foreground = "#c0caf5"' 'selection_background = "#7aa2f7"'
+  for i in $(seq 0 15); do printf 'color%d = "#1a1b26"\n' "$i"; done
+} >"$XDG_CONFIG_HOME/narchy/themes/plain/colors.toml"
+NARCHY_APPS=dummy "$NARCHY" set plain >/dev/null
+! grep -rq '{{' "$XDG_STATE_HOME/narchy/current/"
+check $? "a palette naming only the 16 slots still renders everything"
 
 NARCHY_APPS=dummy "$NARCHY" set tokyo-night >/dev/null
 [[ $("$NARCHY" current) == tokyo-night ]]
