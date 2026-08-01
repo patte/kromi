@@ -37,7 +37,9 @@ list_themes() {
   {
     local dir
     while read -r dir; do
-      [[ -d $dir ]] && find -L "$dir" -mindepth 1 -maxdepth 1 \( -type d -o -type l \) -printf '%f\n'
+      if [[ -d $dir ]]; then
+        find -L "$dir" -mindepth 1 -maxdepth 1 \( -type d -o -type l \) -printf '%f\n'
+      fi
     done < <(search_dirs themes)
   } | sort -u
 }
@@ -46,7 +48,9 @@ list_apps() {
   {
     local dir
     while read -r dir; do
-      [[ -d $dir ]] && find -L "$dir" -maxdepth 1 -name '*.sh' -printf '%f\n'
+      if [[ -d $dir ]]; then
+        find -L "$dir" -maxdepth 1 -name '*.sh' -printf '%f\n'
+      fi
     done < <(search_dirs apps)
   } | sed 's/\.sh$//' | sort -u
 }
@@ -174,11 +178,13 @@ app_run() {
     set -euo pipefail
     APP="$app"
     templates=""
+    uses_background=0
     detect() { command -v "$APP" >/dev/null 2>&1; }
     reload() { :; }
     link() { warn "$APP: nothing to link"; }
     unlink() { :; }
     _templates() { printf '%s\n' $templates; }
+    _uses_background() { printf '%s\n' "$uses_background"; }
     # shellcheck disable=SC1090
     source "$file"
     "$fn" "$@"
@@ -247,6 +253,42 @@ build_sed_script() {
   done
 }
 
+# --- backgrounds ------------------------------------------------------------
+# A wallpaper is not derived from the palette, so it is chosen rather than
+# rendered: narchy points `current/background` at one and leaves showing it to
+# whichever daemon is installed.
+
+# if/fi rather than `[[ ]] &&`, which would leave the group returning 1 when a
+# directory is missing and take the whole pipeline down under pipefail.
+list_backgrounds() {
+  local theme=$1 root=$2
+  {
+    if [[ -d $NARCHY_CONFIG/backgrounds/$theme ]]; then
+      find -L "$NARCHY_CONFIG/backgrounds/$theme" -maxdepth 1 -type f -print
+    fi
+    if [[ -d $root/backgrounds ]]; then
+      find -L "$root/backgrounds" -maxdepth 1 -type f -print
+    fi
+  } 2>/dev/null | sort
+}
+
+# Called while the new theme is still staged, so anything the theme ships has
+# to be named where it will live once the directory is swapped in.
+set_background_link() {
+  local theme=$1 first
+  first=$(list_backgrounds "$theme" "$NEXT" | head -1)
+  [[ -n $first ]] || return 0
+  ln -snf "${first/#$NEXT\//$CURRENT/}" "$NEXT/background"
+}
+
+reload_background_apps() {
+  local app
+  for app in $(enabled_apps); do
+    [[ $(app_run "$app" _uses_background) == 1 ]] || continue
+    app_run "$app" reload || warn "$app: reload failed"
+  done
+}
+
 normalise_name() { printf '%s\n' "$1" | tr '[:upper:] ' '[:lower:]-'; }
 
 title_case() { printf '%s\n' "$1" | sed -E 's/(^|-)([a-z])/\1\u\2/g; s/-/ /g'; }
@@ -300,6 +342,7 @@ cmd_set() {
   fi
 
   printf '%s\n' "$name" >"$NEXT/.name"
+  set_background_link "$name"
 
   rm -rf "$CURRENT"
   mv "$NEXT" "$CURRENT"
@@ -329,6 +372,43 @@ cmd_list() {
 cmd_current() {
   [[ -f $CURRENT/.name ]] || die "no theme set"
   cat "$CURRENT/.name"
+}
+
+cmd_background() {
+  local action=${1:-show}
+  [[ -f $CURRENT/.name ]] || die "no theme set"
+  local theme
+  theme=$(cat "$CURRENT/.name")
+
+  case $action in
+    show)
+      [[ -L $CURRENT/background ]] || die "no background for $theme"
+      readlink "$CURRENT/background"
+      ;;
+    apply)
+      # For autostart: puts the current background back after a login, which
+      # daemons that keep no state of their own need.
+      reload_background_apps
+      ;;
+    next)
+      local -a all
+      mapfile -t all < <(list_backgrounds "$theme" "$CURRENT")
+      ((${#all[@]})) || die "no backgrounds for $theme"
+
+      local current index=-1 i
+      current=$(readlink "$CURRENT/background" 2>/dev/null || true)
+      for i in "${!all[@]}"; do
+        [[ ${all[$i]} == "$current" ]] && index=$i && break
+      done
+
+      ln -snf "${all[$(((index + 1) % ${#all[@]}))]}" "$CURRENT/background"
+      reload_background_apps
+      basename "$(readlink "$CURRENT/background")"
+      ;;
+    *)
+      die "usage: narchy background [show|next|apply]"
+      ;;
+  esac
 }
 
 cmd_apps() {
@@ -369,6 +449,9 @@ narchy — apply one colour palette across a desktop's apps.
   narchy set <theme>      render the palette and reload running apps
   narchy list             list themes, marking the current one
   narchy current          print the current theme
+  narchy background next  cycle to this theme's next wallpaper
+  narchy background apply reapply the current one (for autostart)
+  narchy background apply reapply the current one (for autostart)
   narchy apps             list app definitions, marking detected ones
   narchy link [app...]    point app configs at narchy's output (opt-in)
   narchy unlink [app...]  undo link
@@ -386,6 +469,7 @@ main() {
     set) cmd_set "$@" ;;
     list) cmd_list ;;
     current) cmd_current ;;
+    background | bg) cmd_background "$@" ;;
     apps) cmd_apps ;;
     link) cmd_link "$@" ;;
     unlink) cmd_unlink "$@" ;;

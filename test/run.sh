@@ -203,6 +203,32 @@ check $? "unlink hands vscode settings back exactly as they were"
 [[ $(jq -r '."workbench.colorCustomizations"."editor.background" // "none"' "$settings") == "none" ]]
 check $? "set leaves vscode alone when it is not linked"
 
+echo "background selection"
+
+BG="$XDG_CONFIG_HOME/narchy/backgrounds"
+mkdir -p "$BG/nord"
+echo x >"$BG/nord/1-first.jpg"
+echo y >"$BG/nord/2-second.png"
+echo z >"$BG/nord/3-third.jpg"
+
+NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
+[[ $("$NARCHY" background) == "$BG/nord/1-first.jpg" ]]
+check $? "set points the background link at the first image"
+
+[[ $(NARCHY_APPS=dummy "$NARCHY" background next) == "2-second.png" ]]
+check $? "background next advances"
+
+NARCHY_APPS=dummy "$NARCHY" background next >/dev/null
+[[ $(NARCHY_APPS=dummy "$NARCHY" background next) == "1-first.jpg" ]]
+check $? "background next wraps around"
+
+# A theme nobody has pictures for must not break a switch.
+NARCHY_APPS=dummy "$NARCHY" set gruvbox >/dev/null
+check $? "set works for a theme with no backgrounds"
+
+[[ ! -L $XDG_STATE_HOME/narchy/current/background ]]
+check $? "no background link when there are no images"
+
 echo "backgrounds"
 
 # Point the fetcher at a local repo, so this stays offline.

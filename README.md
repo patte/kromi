@@ -27,6 +27,8 @@ The second one is optional and does nothing unless you run it — see Wallpapers
 narchy set <theme>      render the palette and reload running apps
 narchy list             list themes, marking the current one
 narchy current          print the current theme
+narchy background next  cycle to this theme's next wallpaper
+narchy background apply reapply the current one (for autostart)
 narchy apps             list app definitions, marking detected ones
 narchy link [app...]    point app configs at narchy's output (opt-in)
 narchy unlink [app...]  undo link
@@ -162,8 +164,25 @@ distributing these files, but they still belong to the people who made them,
 and a few in the upstream set are plainly not free to redistribute. Use your
 judgement, particularly if you are putting the result somewhere public.
 
-Nothing reads these yet — narchy does not set wallpapers. Support for that
-needs a wallpaper daemon and is not written.
+### Setting them
+
+`narchy set` points `~/.local/state/narchy/current/background` at the first
+image for that theme, and `narchy background next` cycles through the rest.
+Which daemon puts it on screen is an app definition like any other; hyprpaper
+ships, and a theme may carry its own `backgrounds/` directory instead of
+relying on yours.
+
+hyprpaper needs no linking — it is driven over IPC, because hyprpaper 0.8.4
+does not read `hyprpaper.conf` at all (a deliberately invalid one raises no
+complaint and no wallpaper appears). That also means it starts blank, so
+autostart both:
+
+```
+exec-once = hyprpaper
+exec-once = narchy background apply
+```
+
+A theme with no images just gets no wallpaper; nothing fails.
 
 ## Adding an app
 
@@ -192,7 +211,7 @@ detection entirely.
 
 ## Supported out of the box
 
-hyprland, waybar, wofi, mako, ghostty, btop, neovim, vscode.
+hyprland, hyprpaper, waybar, wofi, mako, ghostty, btop, neovim, vscode.
 
 ## Tests
 
