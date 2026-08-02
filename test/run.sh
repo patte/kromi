@@ -405,6 +405,35 @@ check $? "set leaves vscode alone when it is not linked"
 ! grep -q 'prefers-color-scheme.content-override' "$profile/user.js"
 check $? "set leaves firefox alone when it is not linked"
 
+echo "firefox live loader"
+
+# A stand-in for a firefox install: the loader goes beside the program, and
+# what matters is that it lands, names itself, and comes back out.
+FFAPP="$SANDBOX/ffapp"
+mkdir -p "$FFAPP/defaults/pref"
+printf '#!/bin/sh\n' >"$FFAPP/firefox"
+chmod +x "$FFAPP/firefox"
+
+NARCHY_PATH=$ROOT NARCHY_FIREFOX_APP=$FFAPP "$ROOT/bin/narchy-firefox-live" install >/dev/null
+[[ -f $FFAPP/narchy-live.cfg && -f $FFAPP/defaults/pref/narchy-autoconfig.js ]]
+check $? "the live loader installs beside the program"
+
+grep -q '"general.config.filename", "narchy-live.cfg"' "$FFAPP/defaults/pref/narchy-autoconfig.js"
+check $? "the bootstrap names the loader"
+
+NARCHY_PATH=$ROOT NARCHY_FIREFOX_APP=$FFAPP "$ROOT/bin/narchy-firefox-live" status | grep -q '^loader    installed$'
+check $? "status reports it in place"
+
+# There is one general.config.filename, and it may be somebody else's.
+printf 'pref("general.config.filename", "theirs.cfg");\n' >"$FFAPP/defaults/pref/theirs.js"
+! NARCHY_PATH=$ROOT NARCHY_FIREFOX_APP=$FFAPP "$ROOT/bin/narchy-firefox-live" install >/dev/null 2>&1
+check $? "install refuses to take over another autoconfig"
+rm -f "$FFAPP/defaults/pref/theirs.js"
+
+NARCHY_PATH=$ROOT NARCHY_FIREFOX_APP=$FFAPP "$ROOT/bin/narchy-firefox-live" uninstall >/dev/null
+[[ ! -e $FFAPP/narchy-live.cfg && ! -e $FFAPP/defaults/pref/narchy-autoconfig.js ]]
+check $? "uninstall takes both files out again"
+
 echo "interactive"
 
 NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null

@@ -17,9 +17,11 @@ it recolours whatever it finds.
 git clone https://github.com/patte/narchy ~/.local/share/narchy
 ln -s ~/.local/share/narchy/bin/narchy ~/.local/bin/narchy
 ln -s ~/.local/share/narchy/bin/narchy-backgrounds ~/.local/bin/narchy-backgrounds
+ln -s ~/.local/share/narchy/bin/narchy-firefox-live ~/.local/bin/narchy-firefox-live
 ```
 
-The second one is optional and does nothing unless you run it — see Wallpapers.
+The last two are optional and do nothing unless you run them — see Wallpapers,
+and Firefox.
 
 ## Use
 
@@ -248,6 +250,35 @@ What none of this can do is switch a Firefox that is already open. The
 stylesheets are parsed once per run and cached for every window after, so a new
 window is no help either — a switch lands in the files immediately and shows up
 the next time Firefox starts. narchy warns when it sees one running.
+
+### Landing a switch in a Firefox that is open
+
+`narchy-firefox-live` is the way round that, and a bigger ask than anything
+else here. Firefox runs privileged JavaScript only from its own install
+directory, so the loader goes in beside the program, as root: `narchy-live.cfg`
+and a three-line `defaults/pref/narchy-autoconfig.js` that names it. A Firefox
+update replaces that directory and takes the loader with it, so it has to be
+run again after one. That is the price, and it is why this is a separate
+command rather than part of `link`.
+
+```sh
+narchy-firefox-live install     # then restart firefox once
+narchy-firefox-live status
+narchy-firefox-live uninstall
+```
+
+What the loader does is watch narchy's output and hand it to
+`nsIStyleSheetService`, which registers a stylesheet into documents that are
+already open — both sheets, and the website appearance pref with them, which a
+running Firefox also takes at once. After the one restart, every `narchy set`
+recolours the windows in front of you, and nothing of narchy's is written into
+your profile at all.
+
+Use this **or** `narchy link firefox`, not both. A sheet imported by
+userChrome.css is loaded first and wins over one registered later, so a linked
+profile pins the palette Firefox started with and the loader appears to do
+nothing. Run `narchy unlink firefox` before installing; the loader needs
+nothing from the profile, and `install` says so if it finds one still linked.
 
 ### neovim
 
