@@ -48,8 +48,8 @@ ln -s "$ROOT/themes" "$FIXTURE/themes"
 ln -s "$ROOT/templates" "$FIXTURE/templates"
 for app in "$ROOT"/apps/*.sh; do
   name=$(basename "$app")
-  if [[ $name == vscode.sh ]]; then
-    # Its reload is the theme application itself, not a signal, and it writes
+  if [[ $name == vscode.sh || $name == vlc.sh ]]; then
+    # Their reload is the theme application itself, not a signal, and it writes
     # only inside the sandbox — so keep it, or there is nothing to test.
     cp "$app" "$FIXTURE/apps/$name"
   else
@@ -212,9 +212,23 @@ cat >"$XDG_CONFIG_HOME/Code/User/settings.json" <<'EOF'
   "workbench.colorCustomizations": { "notebook.editorBackground": "#abcdef" }
 }
 EOF
+# vlcrc as VLC writes one: sectioned, and the key present but commented out,
+# which is how it spells a default.
+mkdir -p "$XDG_CONFIG_HOME/vlc"
+cat >"$XDG_CONFIG_HOME/vlc/vlcrc" <<'EOF'
+[core]
+#volume=256
+
+[qt] # Qt interface
+# Enable Dark Mode (boolean)
+#qt-dark-palette=0
+
+# Show advanced preferences over simple ones (boolean)
+#qt-advanced-pref=0
+EOF
 cp -r "$XDG_CONFIG_HOME" "$SANDBOX/config.before"
 
-apps="hyprland hyprpaper waybar wofi mako ghostty btop neovim vscode"
+apps="hyprland hyprpaper waybar wofi mako ghostty btop neovim vscode vlc"
 "$NARCHY" link $apps >/dev/null
 "$NARCHY" link $apps >/dev/null
 
@@ -280,6 +294,24 @@ check $? "vscode gets a light base theme for a light palette"
 
 NARCHY_APPS=vscode "$NARCHY" set tokyo-night >/dev/null
 
+vlcrc="$XDG_CONFIG_HOME/vlc/vlcrc"
+section_of() { awk '/^\[/ { s = $1 } /^qt-dark-palette=/ { print s; exit }' "$1"; }
+
+grep -qx 'qt-dark-palette=1' "$vlcrc"
+check $? "vlc turns dark mode on for a dark palette"
+
+[[ $(section_of "$vlcrc") == "[qt]" ]]
+check $? "the key is rewritten where it stood, under [qt]"
+
+[[ $(grep -c 'qt-dark-palette' "$vlcrc") == 1 ]]
+check $? "the commented default is replaced, not doubled"
+
+NARCHY_APPS=vlc "$NARCHY" set catppuccin-latte >/dev/null
+grep -qx 'qt-dark-palette=0' "$vlcrc"
+check $? "vlc turns it off again for a light palette"
+
+NARCHY_APPS=vlc "$NARCHY" set tokyo-night >/dev/null
+
 echo "unlinking"
 
 "$NARCHY" unlink $apps >/dev/null
@@ -295,6 +327,9 @@ check $? "unlink removes configs that held only our line"
 
 diff <(jq -S . "$SANDBOX/config.before/Code/User/settings.json") <(jq -S . "$settings") >/dev/null
 check $? "unlink hands vscode settings back exactly as they were"
+
+diff "$SANDBOX/config.before/vlc/vlcrc" "$vlcrc" >/dev/null
+check $? "unlink puts vlcrc back, comment and default and all"
 
 # Nothing may be written to a config that was never linked.
 "$NARCHY" set gruvbox >/dev/null

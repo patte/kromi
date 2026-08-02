@@ -105,7 +105,9 @@ Paths assume the default `XDG_STATE_HOME`. `narchy link` writes exactly these.
 | hyprland | `~/.config/hypr/hyprland.lua` | `pcall(dofile, (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/narchy/current/hyprland.lua")` |
 | btop | `~/.config/btop/btop.conf` | symlink `~/.local/state/narchy/current/btop.theme` into `~/.config/btop/themes/`, then set `color_theme` to its name |
 | neovim | `~/.config/nvim/init.lua` | `pcall(dofile, (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/narchy/current/neovim.lua")` |
+| hyprpaper | `~/.config/hypr/hyprpaper.conf` | `source = ~/.local/state/narchy/current/hyprpaper.conf` |
 | vscode | `~/.config/Code/User/settings.json` | no line — see below |
+| vlc | `~/.config/vlc/vlcrc` | no line — see below |
 
 GTK stylesheets need absolute paths — `~` is not expanded there, so use the full
 path in the waybar and wofi imports.
@@ -145,6 +147,23 @@ palette.
 
 This only ever happens after linking. Until then `narchy set` does not open
 your `settings.json` at all.
+
+### Why VLC is different, and how little it gets
+
+VLC has no colours to set. Its Qt interface offers one boolean,
+`qt-dark-palette`, which swaps Qt's palette wholesale — so all narchy can tell
+it is which side of light and dark the theme sits on, taken from the same
+`mode` every other template uses. A dark palette turns it on, a light one off.
+
+`vlcrc` has no include either, so narchy rewrites that one key in place, where
+VLC left it commented out under `[qt]`. `narchy link vlc` records the line as
+it found it and `narchy unlink vlc` puts it back, comment and all — the same
+backup-as-marker VS Code uses, so an unlinked VLC is never written to.
+
+Two things it cannot do. The interface reads `vlcrc` once at startup, so a
+switch shows up the next time you open VLC. And VLC writes the whole file back
+out of memory when it exits, so a VLC that is already open will overwrite what
+narchy just wrote; narchy warns when it sees one running.
 
 ### neovim
 
@@ -327,7 +346,7 @@ detection entirely.
 
 ## Supported out of the box
 
-hyprland, hyprpaper, waybar, wofi, mako, ghostty, btop, neovim, vscode.
+hyprland, hyprpaper, waybar, wofi, mako, ghostty, btop, neovim, vscode, vlc.
 
 ## Tests
 
