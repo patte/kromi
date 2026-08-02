@@ -160,10 +160,13 @@ VLC left it commented out under `[qt]`. `narchy link vlc` records the line as
 it found it and `narchy unlink vlc` puts it back, comment and all — the same
 backup-as-marker VS Code uses, so an unlinked VLC is never written to.
 
-Two things it cannot do. The interface reads `vlcrc` once at startup, so a
-switch shows up the next time you open VLC. And VLC writes the whole file back
-out of memory when it exits, so a VLC that is already open will overwrite what
-narchy just wrote; narchy warns when it sees one running.
+What it cannot do is switch a VLC that is already open. The interface reads
+`vlcrc` when it starts and never looks again, so `narchy set` puts the new
+value in the file immediately and the player in front of you keeps the palette
+it launched with until you restart it — narchy warns when it sees one running.
+Nothing is lost in the meantime: quitting VLC leaves `vlcrc` byte for byte as
+it was. Saving preferences from VLC's own dialog is the one thing that rewrites
+the file, and it will write narchy's key along with the rest.
 
 ### neovim
 

@@ -9,10 +9,13 @@ detect() { command -v vlc >/dev/null 2>&1; }
 # Qt's own palette wholesale and is the only thing the Qt interface offers —
 # there is no colour in it to set, so mode is all narchy has to say.
 #
-# There is no include either, and no reload: the interface reads vlcrc once at
-# startup, and on exit writes the whole file back out of memory. So a VLC that
-# is already open will hand its own copy back over anything written underneath
-# it. The write still happens, and the warning says why it may not stick.
+# There is no include either, and no reload: the interface reads vlcrc when it
+# starts and never looks again, so a switch lands in the file at once and shows
+# up the next time VLC opens. The write is not at risk from a VLC already
+# running — quitting one leaves vlcrc byte for byte as it was — but the player
+# in front of you keeps the palette it started with, which is what the warning
+# is for. Saving preferences from VLC's own dialog is the thing that rewrites
+# the file, and it writes narchy's key along with everything else.
 #
 # set_kv is no good here: vlcrc is `key=value` with no spaces, and the key
 # ships commented out, which is how VLC spells a default. Rewriting that line
@@ -45,7 +48,7 @@ apply() {
   value=$(value_for_mode) || return 0
   write_key "$value"
   if pgrep -x vlc >/dev/null 2>&1; then
-    warn "vlc is open; it rewrites vlcrc on exit, so restart it to keep this"
+    warn "vlc is open; it reads vlcrc only at startup, so restart it to see this"
   fi
 }
 
