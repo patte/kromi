@@ -214,7 +214,7 @@ cat >"$XDG_CONFIG_HOME/Code/User/settings.json" <<'EOF'
 EOF
 cp -r "$XDG_CONFIG_HOME" "$SANDBOX/config.before"
 
-apps="hyprland waybar wofi mako ghostty btop neovim vscode"
+apps="hyprland hyprpaper waybar wofi mako ghostty btop neovim vscode"
 "$NARCHY" link $apps >/dev/null
 "$NARCHY" link $apps >/dev/null
 
@@ -223,6 +223,11 @@ check $? "link is idempotent (hyprland)"
 
 [[ $(grep -c 'narchy/current' "$XDG_CONFIG_HOME/waybar/style.css") == 2 ]]
 check $? "link adds palette and theme imports (waybar)"
+
+# hyprpaper has no config of its own until narchy writes one, and sourcing a
+# file that is not there is the one error it refuses to start on.
+[[ $(grep -c '^source = .*narchy/current/hyprpaper.conf$' "$XDG_CONFIG_HOME/hypr/hyprpaper.conf") == 1 ]]
+check $? "link sources narchy's file (hyprpaper)"
 
 head -1 "$XDG_CONFIG_HOME/waybar/style.css" | grep -q 'palette.css'
 check $? "palette import comes first, where css needs it"
@@ -441,6 +446,14 @@ NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
 [[ $("$NARCHY" background) == "$BG/nord/1-first.jpg" ]]
 check $? "set points the background link at the first image"
 
+HP="$XDG_STATE_HOME/narchy/current/hyprpaper.conf"
+
+grep -qxF "    path = $XDG_STATE_HOME/narchy/current/background" "$HP"
+check $? "the wallpaper config names the link, not the image behind it"
+
+grep -qxF 'splash = false' "$HP"
+check $? "hyprpaper's own splash is turned off"
+
 [[ $(NARCHY_APPS=dummy "$NARCHY" background next) == "2-second.png" ]]
 check $? "background next advances"
 
@@ -454,6 +467,11 @@ check $? "set works for a theme with no backgrounds"
 
 [[ ! -L $XDG_STATE_HOME/narchy/current/background ]]
 check $? "no background link when there are no images"
+
+# The sourced file has to exist even then: hyprpaper shrugs off a path it
+# cannot resolve, but a source line with nothing behind it stops it starting.
+[[ -f $HP ]]
+check $? "the sourced file is written for a theme with no wallpaper"
 
 echo "backgrounds"
 

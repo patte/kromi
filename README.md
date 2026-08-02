@@ -30,7 +30,7 @@ narchy interactive      list themes, then browse them: n/p step, a auto,
   (i, demo) [seconds]   r restore, x keep; with seconds, starts rolling
 narchy current          print the current theme
 narchy background next  cycle to this theme's next wallpaper
-narchy background apply reapply the current one (for autostart)
+narchy background apply put the current one back on a running daemon
 narchy apps             list app definitions, marking detected ones
 narchy link [app...]    point app configs at narchy's output (opt-in)
 narchy unlink [app...]  undo link
@@ -221,6 +221,12 @@ Three more are worked out from the palette rather than read from it:
 | `{{ mode_title }}` | the same, capitalised |
 | `{{ dim_text }}` | for comments, line numbers, placeholders |
 
+And one that is no colour at all:
+
+| Key | |
+|---|---|
+| `{{ background_image }}` | absolute path to the current wallpaper link |
+
 `dim_text` is chosen per theme: the dimmest of `dark_foreground`, `muted` and
 `color8` that still stands off the background, and whichever stands off
 furthest when none of them does. Which one wins differs by palette — no single
@@ -267,17 +273,32 @@ Which daemon puts it on screen is an app definition like any other; hyprpaper
 ships, and a theme may carry its own `backgrounds/` directory instead of
 relying on yours.
 
-hyprpaper needs no linking — it is driven over IPC, because hyprpaper 0.8.4
-does not read `hyprpaper.conf` at all (a deliberately invalid one raises no
-complaint and no wallpaper appears). That also means it starts blank, so
-autostart both:
+`narchy link hyprpaper` adds one line to `~/.config/hypr/hyprpaper.conf`,
+creating it if you have none:
+
+```
+source = ~/.local/state/narchy/current/hyprpaper.conf
+```
+
+That file names the wallpaper link, so hyprpaper puts the right picture up by
+itself at every start — a login, or a crash the service restarts from. All
+autostart needs is hyprpaper:
 
 ```
 exec-once = hyprpaper
-exec-once = narchy background apply
 ```
 
-A theme with no images just gets no wallpaper; nothing fails.
+Config is read once, at startup, so a switch made while it is running goes over
+IPC instead; that is what `reload` does, and what `narchy background apply` is
+for on an unlinked setup. Note that hyprpaper draws Hyprland's splash string
+over the wallpaper itself, which `misc:disable_splash_rendering` does not
+govern — narchy's file turns it off with `splash = false`. Anything you write
+below the source line overrides what narchy set, that one included.
+
+A theme with no images just gets no wallpaper; nothing fails. Pointing at a
+picture that is not there is an error hyprpaper logs and keeps running from —
+unlike a `source` line with nothing behind it, which stops it starting at all,
+so `link` refuses before there is a theme to source.
 
 ## Adding an app
 

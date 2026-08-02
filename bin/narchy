@@ -385,6 +385,11 @@ cmd_set() {
     script=$(mktemp)
     build_sed_script "$NEXT/colors.toml" >"$script"
 
+    # Not a colour and not derived from one: where the wallpaper will be, for
+    # the template that has to name a file rather than a palette entry. Spelled
+    # as it will read once NEXT is swapped in, the same as set_background_link.
+    printf 's|{{ background_image }}|%s|g\n' "$CURRENT/background" >>"$script"
+
     # Every known app, not just the detected ones. Rendering a file for a
     # program that is absent costs nothing, whereas failing to render one that
     # a config still imports breaks that app at startup — a missing @import
@@ -614,8 +619,9 @@ cmd_background() {
       readlink "$CURRENT/background"
       ;;
     apply)
-      # For autostart: puts the current background back after a login, which
-      # daemons that keep no state of their own need.
+      # For a daemon that is up but showing nothing, or one narchy has not been
+      # linked into. A linked hyprpaper reads its own config at startup and
+      # needs no help after a login.
       reload_background_apps
       ;;
     next)
@@ -680,7 +686,7 @@ narchy — apply one colour palette across a desktop's apps.
     (i, demo) [seconds]   r restore, x keep; with seconds, starts rolling
   narchy current          print the current theme
   narchy background next  cycle to this theme's next wallpaper
-  narchy background apply reapply the current one (for autostart)
+  narchy background apply put the current one back on a running daemon
   narchy apps             list app definitions, marking detected ones
   narchy link [app...]    point app configs at narchy's output (opt-in)
   narchy unlink [app...]  undo link

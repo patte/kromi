@@ -1,13 +1,16 @@
+templates="hyprpaper.conf"
 uses_background=1
+
+config="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/hyprpaper.conf"
+include="source = $(tilde "$(theme_file hyprpaper.conf)")"
 
 link_path="$(theme_file background)"
 
 detect() { command -v hyprpaper >/dev/null 2>&1; }
 
-# IPC only. hyprpaper 0.8.4 does not read hyprpaper.conf at all — a deliberately
-# invalid one raises no complaint and no wallpaper is set — so writing static
-# directives there would leave dead lines in someone's config and nothing on
-# screen. That is also why login needs `narchy background apply`.
+# Config for a cold start, IPC for a warm one: hyprpaper reads its config once,
+# at startup, so a daemon already running has to be told. That split is why a
+# login needs nothing of narchy's — hyprpaper puts the wallpaper back itself.
 #
 # hyprpaper caches by path and the symlink's path never changes, so unload
 # first or it keeps showing the image that link used to point at. The resolved
@@ -23,10 +26,17 @@ reload() {
   hyprctl hyprpaper wallpaper ",$image" >/dev/null 2>&1 || true
 }
 
+# Sourcing a file that is not there is the one config error hyprpaper refuses
+# to start on — a missing image it merely complains about. So check rather than
+# hand someone a daemon that will not come up.
 link() {
-  warn "hyprpaper needs no config; add to your hyprland config instead:"
-  warn "    exec-once = hyprpaper"
-  warn "    exec-once = narchy background apply"
+  local sourced
+  sourced=$(theme_file hyprpaper.conf)
+  [[ -f $sourced ]] || {
+    warn "no $sourced to source; run 'narchy set <theme>' first"
+    return 1
+  }
+  prepend_line "$config" "$include"
 }
 
-unlink() { :; }
+unlink() { drop_line "$config" "$include"; }
