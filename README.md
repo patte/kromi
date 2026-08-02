@@ -274,6 +274,15 @@ running Firefox also takes at once. After the one restart, every `narchy set`
 recolours the windows in front of you, and nothing of narchy's is written into
 your profile at all.
 
+It notices by looking, once, at one file — the two sheets and the mode marker
+are rendered together and swapped into place together, so the chrome sheet
+stands for all three. The looking is free; the wakeup it rides on is not, so
+the loop only runs quickly for twenty seconds after a switch, which is what
+keeps `narchy interactive` stepping smoothly, drops to two and a half seconds
+the rest of the time, and stops altogether while you are away from the machine.
+Editing one of the other two files by hand goes unnoticed until the chrome
+sheet moves; `touch` it, or set the theme again.
+
 Use this **or** `narchy link firefox`, not both. A sheet imported by
 userChrome.css is loaded first and wins over one registered later, so a linked
 profile pins the palette Firefox started with and the loader appears to do
