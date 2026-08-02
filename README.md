@@ -274,14 +274,19 @@ running Firefox also takes at once. After the one restart, every `narchy set`
 recolours the windows in front of you, and nothing of narchy's is written into
 your profile at all.
 
-It notices by looking, once, at one file — the two sheets and the mode marker
-are rendered together and swapped into place together, so the chrome sheet
-stands for all three. The looking is free; the wakeup it rides on is not, so
-the loop only runs quickly for twenty seconds after a switch, which is what
-keeps `narchy interactive` stepping smoothly, drops to two and a half seconds
-the rest of the time, and stops altogether while you are away from the machine.
-Editing one of the other two files by hand goes unnoticed until the chrome
-sheet moves; `touch` it, or set the theme again.
+It is told rather than left watching. Firefox listens on a unix socket in
+`$XDG_RUNTIME_DIR/narchy`, one per process, and `narchy set` opens a connection
+to each — the connection is the whole message, so nothing is sent and nothing
+is read. Nothing wakes up in between, and a switch lands as fast as a socket
+can be opened. Knocking needs `socat`, a netcat with `-U`, or `python3`; with
+none of those the loader falls back to looking at the file instead, quickly for
+twenty seconds after a switch and every two and a half seconds otherwise, and
+not at all while you are away from the machine.
+
+Either way it notices by one file. The two sheets and the mode marker are
+rendered together and swapped into place together, so the chrome sheet stands
+for all three — and editing one of the other two by hand goes unnoticed until
+that one moves. `touch` it, or set the theme again.
 
 Use this **or** `narchy link firefox`, not both. A sheet imported by
 userChrome.css is loaded first and wins over one registered later, so a linked

@@ -89,7 +89,7 @@ value_for_mode() {
 }
 
 apply() {
-  local value profile linked=0
+  local told=${1:-0} value profile linked=0
   value=$(value_for_mode) || return 0
 
   while read -r profile; do
@@ -98,17 +98,33 @@ apply() {
     linked=1
   done < <(profiles)
 
-  if ((linked)) && pgrep -x firefox >/dev/null 2>&1; then
+  # Not when the live loader answered: it has already been told, and telling
+  # someone to restart a browser that just changed colour is nonsense.
+  if ((linked && !told)) && pgrep -x firefox >/dev/null 2>&1; then
     warn "firefox is open; it reads its stylesheets and prefs at startup, so restart it to see this"
   fi
   return 0
 }
 
-# There is no reload, and no new window to fall back on either: the stylesheets
-# are parsed once per run and cached for every window after, so a switch shows
-# up when Firefox next starts. What runs here is the write of the one thing
-# `set` still has to keep up to date, and only for a profile already linked.
-reload() { apply; }
+# Knock, if the live loader is listening. It is opt-in and installed by hand,
+# so the usual case is that there is no socket directory to look in and this
+# costs a test on a path.
+knock() {
+  local helper="$NARCHY_PATH/bin/narchy-firefox-live"
+  [[ -d ${XDG_RUNTIME_DIR:-/tmp}/narchy && -x $helper ]] || return 1
+  "$helper" poke >/dev/null 2>&1
+}
+
+# There is no reload of Firefox's own, and no new window to fall back on
+# either: the stylesheets are parsed once per run and cached for every window
+# after, so a switch shows up when Firefox next starts. Unless the live loader
+# is in, which is what the knock is for. The rest is the write of the one thing
+# `set` has to keep up to date, and only for a profile already linked.
+reload() {
+  local told=0
+  knock && told=1
+  apply "$told"
+}
 
 link() {
   local profile name found=0

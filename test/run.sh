@@ -421,8 +421,10 @@ check $? "the live loader installs beside the program"
 grep -q '"general.config.filename", "narchy-live.cfg"' "$FFAPP/defaults/pref/narchy-autoconfig.js"
 check $? "the bootstrap names the loader"
 
-NARCHY_PATH=$ROOT NARCHY_FIREFOX_APP=$FFAPP "$ROOT/bin/narchy-firefox-live" status | grep -q '^loader    installed$'
+NARCHY_PATH=$ROOT NARCHY_FIREFOX_APP=$FFAPP "$ROOT/bin/narchy-firefox-live" status >"$SANDBOX/st.txt" 2>&1
+grep -q '^loader    installed$' "$SANDBOX/st.txt"
 check $? "status reports it in place"
+grep -q '^loader    installed$' "$SANDBOX/st.txt" || sed 's/^/       /' "$SANDBOX/st.txt"
 
 # There is one general.config.filename, and it may be somebody else's.
 printf 'pref("general.config.filename", "theirs.cfg");\n' >"$FFAPP/defaults/pref/theirs.js"
@@ -433,6 +435,39 @@ rm -f "$FFAPP/defaults/pref/theirs.js"
 NARCHY_PATH=$ROOT NARCHY_FIREFOX_APP=$FFAPP "$ROOT/bin/narchy-firefox-live" uninstall >/dev/null
 [[ ! -e $FFAPP/narchy-live.cfg && ! -e $FFAPP/defaults/pref/narchy-autoconfig.js ]]
 check $? "uninstall takes both files out again"
+
+# The knock, against a socket that answers and one that does not. python3 is
+# only standing in for a listening Firefox here.
+if command -v python3 >/dev/null 2>&1; then
+  export XDG_RUNTIME_DIR="$SANDBOX/run"
+  mkdir -p "$XDG_RUNTIME_DIR/narchy"
+  python3 -c '
+import os, socket, sys
+path = sys.argv[1]
+s = socket.socket(socket.AF_UNIX)
+s.bind(path)
+s.listen(4)
+conn, _ = s.accept()
+conn.close()
+open(sys.argv[2], "w").write("knocked")
+' "$XDG_RUNTIME_DIR/narchy/firefox-1.sock" "$SANDBOX/knocked" &
+  listener=$!
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    [[ -S $XDG_RUNTIME_DIR/narchy/firefox-1.sock ]] && break
+    python3 -c 'import time; time.sleep(0.2)'
+  done
+
+  NARCHY_PATH=$ROOT "$ROOT/bin/narchy-firefox-live" poke >/dev/null
+  wait $listener 2>/dev/null
+  [[ -f $SANDBOX/knocked ]]
+  check $? "poke reaches a listening firefox"
+
+  # Nothing is behind it now, and a socket nobody answers is one narchy would
+  # knock on for the rest of the session.
+  NARCHY_PATH=$ROOT "$ROOT/bin/narchy-firefox-live" poke >/dev/null || true
+  [[ ! -e $XDG_RUNTIME_DIR/narchy/firefox-1.sock ]]
+  check $? "a socket with nobody behind it is cleared away"
+fi
 
 echo "interactive"
 

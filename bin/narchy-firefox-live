@@ -20,6 +20,9 @@ SOURCE="$NARCHY_PATH/apps/firefox-live.cfg"
 CFG="narchy-live.cfg"
 BOOTSTRAP="defaults/pref/narchy-autoconfig.js"
 
+# Where a listening Firefox puts its socket, one per process.
+KNOCKS="${XDG_RUNTIME_DIR:-/tmp}/narchy"
+
 die() {
   printf 'narchy-firefox-live: %s\n' "$*" >&2
   exit 1
@@ -32,10 +35,17 @@ narchy-firefox-live [install|uninstall|status]
 
   install     put the loader in Firefox's install directory (needs root)
   uninstall   take it back out
-  status      say whether it is there, and whether it is current
+  status      say whether it is there, whether it is current, who is listening
+  poke        tell every listening firefox to look now — narchy does this
+              itself on every `set`, so it is here to be run by hand
 
 Then restart Firefox once. After that every `narchy set` recolours the windows
 already open, without a restart and without narchy writing to your profile.
+
+Firefox is told rather than left to watch: it listens on a unix socket under
+$XDG_RUNTIME_DIR/narchy, and narchy opens a connection to it. That needs socat,
+a netcat with -U, or python3. Without one of those the loader falls back to
+looking at the file, which works just as well and costs a wakeup a second.
 
 `narchy link firefox` is the other way to do this: no root, nothing outside
 your home, and a switch shows up the next time Firefox starts. Use one or the
@@ -102,6 +112,58 @@ linked_profiles() {
   done
 }
 
+# Opening the connection is the whole message, so anything that can open a
+# unix socket will do. socat first because it behaves the same everywhere;
+# nc's -U is spelled differently by each of the netcats; python3 is the one
+# most likely to be there when neither is.
+knock() {
+  local sock=$1
+  if command -v socat >/dev/null 2>&1; then
+    socat -u /dev/null "UNIX-CONNECT:$sock" 2>/dev/null
+  elif command -v nc >/dev/null 2>&1 && nc -h 2>&1 | grep -q -- '-U'; then
+    nc -U -w 1 "$sock" </dev/null >/dev/null 2>&1
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import socket, sys
+s = socket.socket(socket.AF_UNIX)
+s.connect(sys.argv[1])
+s.close()' "$sock" 2>/dev/null
+  else
+    return 2
+  fi
+}
+
+listeners() {
+  local sock
+  for sock in "$KNOCKS"/firefox-*.sock; do
+    [[ -S $sock ]] && printf '%s\n' "$sock"
+  done
+  return 0
+}
+
+can_knock() {
+  command -v socat >/dev/null 2>&1 && return 0
+  command -v nc >/dev/null 2>&1 && nc -h 2>&1 | grep -q -- '-U' && return 0
+  command -v python3 >/dev/null 2>&1
+}
+
+# Called by the app definition on every `narchy set`, so it says nothing and
+# costs nothing when there is nobody to tell.
+cmd_poke() {
+  local sock reached=0 rc
+  while read -r sock; do
+    [[ -n $sock ]] || continue
+    knock "$sock" && {
+      reached=$((reached + 1))
+      continue
+    }
+    rc=$?
+    ((rc == 2)) && die "nothing here can open a unix socket — install socat"
+    # Nobody behind it: a firefox that went away without tidying up.
+    rm -f "$sock"
+  done < <(listeners)
+  ((reached > 0))
+}
+
 cmd_status() {
   local dir
   dir=$(app_dir) || die "no firefox install found; set NARCHY_FIREFOX_APP"
@@ -116,6 +178,15 @@ cmd_status() {
   else
     say "loader    not installed"
   fi
+
+  local count
+  count=$(listeners | grep -c . || true)
+  if ((count > 0)); then
+    say "listening $count firefox process(es), in $KNOCKS"
+  else
+    say "listening nothing — start firefox, or it is watching the file instead"
+  fi
+  can_knock || say "knocking  no socat, nc -U or python3 — nothing can tell it"
 
   local linked
   linked=$(linked_profiles)
@@ -154,6 +225,12 @@ EOF
     printf '  %s\n' $linked
   fi
 
+  can_knock || {
+    say ""
+    say "no socat, nc -U or python3 here, so nothing can knock: the loader will"
+    say "fall back to looking at the file a couple of times a second instead."
+  }
+
   say ""
   say "restart firefox once. after that, every 'narchy set' lands in the windows"
   say "already open. a firefox update replaces $dir, so run this again after one."
@@ -176,6 +253,7 @@ main() {
   case ${1:-status} in
     install) cmd_install ;;
     uninstall | remove) cmd_uninstall ;;
+    poke) cmd_poke ;;
     status) cmd_status ;;
     help | -h | --help) usage ;;
     *) die "unknown command: ${1} (try 'narchy-firefox-live help')" ;;
