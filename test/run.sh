@@ -48,7 +48,7 @@ ln -s "$ROOT/themes" "$FIXTURE/themes"
 ln -s "$ROOT/templates" "$FIXTURE/templates"
 for app in "$ROOT"/apps/*.sh; do
   name=$(basename "$app")
-  if [[ $name == vscode.sh || $name == vlc.sh ]]; then
+  if [[ $name == vscode.sh || $name == vlc.sh || $name == firefox.sh ]]; then
     # Their reload is the theme application itself, not a signal, and it writes
     # only inside the sandbox — so keep it, or there is nothing to test.
     cp "$app" "$FIXTURE/apps/$name"
@@ -226,9 +226,33 @@ cat >"$XDG_CONFIG_HOME/vlc/vlcrc" <<'EOF'
 # Show advanced preferences over simple ones (boolean)
 #qt-advanced-pref=0
 EOF
-cp -r "$XDG_CONFIG_HOME" "$SANDBOX/config.before"
+# Firefox as it looks once it has been run: profiles.ini, one profile, and a
+# userChrome.css of the user's own for the import to be prepended to. Once in
+# each root, since Firefox has moved to the XDG directories and still reads the
+# old location — a machine may well have both.
+profile="$XDG_CONFIG_HOME/mozilla/firefox/8h2k1p9x.default-release"
+legacy_profile="$HOME/.mozilla/firefox/3d0m4q7v.default"
+for p in "$profile" "$legacy_profile"; do
+  mkdir -p "$p/chrome"
+  cat >"$(dirname "$p")/profiles.ini" <<EOF
+[Profile0]
+Name=default-release
+IsRelative=1
+Path=$(basename "$p")
+Default=1
 
-apps="hyprland hyprpaper waybar wofi mako ghostty btop neovim vscode vlc"
+[Install9E7C1A2B3D4F5061]
+Default=$(basename "$p")
+Locked=1
+EOF
+  echo '#TabsToolbar { visibility: collapse; }' >"$p/chrome/userChrome.css"
+  echo 'user_pref("browser.startup.homepage", "about:blank");' >"$p/user.js"
+done
+
+cp -r "$XDG_CONFIG_HOME" "$SANDBOX/config.before"
+cp -r "$HOME/.mozilla" "$SANDBOX/mozilla.before"
+
+apps="hyprland hyprpaper waybar wofi mako ghostty btop neovim vscode vlc firefox"
 "$NARCHY" link $apps >/dev/null
 "$NARCHY" link $apps >/dev/null
 
@@ -312,6 +336,44 @@ check $? "vlc turns it off again for a light palette"
 
 NARCHY_APPS=vlc "$NARCHY" set tokyo-night >/dev/null
 
+user_chrome="$profile/chrome/userChrome.css"
+
+[[ $(grep -c '@import url("narchy.css");' "$user_chrome") == 1 ]]
+check $? "link is idempotent (firefox)"
+
+head -1 "$user_chrome" | grep -qx '@import url("narchy.css");'
+check $? "the import goes above the rules already in userChrome.css"
+
+grep -qx '@import url("narchy-content.css");' "$profile/chrome/userContent.css"
+check $? "link imports the about: sheet as well (firefox)"
+
+grep -qx '@import url("narchy.css");' "$legacy_profile/chrome/userChrome.css"
+check $? "link reaches profiles in the old root as well as the XDG one"
+
+# The sheets are reached through the profile rather than named where they lie:
+# the process that loads userContent.css may not read outside the profile.
+[[ $(readlink "$profile/chrome/narchy.css") == "$XDG_STATE_HOME/narchy/current/firefox.css" ]] &&
+  [[ $(readlink "$profile/chrome/narchy-content.css") == "$XDG_STATE_HOME/narchy/current/firefox-content.css" ]]
+check $? "both sheets are symlinked into the profile's chrome dir"
+
+grep -qx 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);' "$profile/user.js"
+check $? "link turns on the pref that makes firefox read them"
+
+grep -qx 'user_pref("layout.css.prefers-color-scheme.content-override", 0);' "$profile/user.js"
+check $? "firefox hands websites a dark palette's dark"
+
+NARCHY_APPS=firefox "$NARCHY" set catppuccin-latte >/dev/null 2>&1
+grep -qx 'user_pref("layout.css.prefers-color-scheme.content-override", 1);' "$profile/user.js"
+check $? "firefox follows a switch to a light palette"
+
+[[ $(grep -c 'prefers-color-scheme.content-override' "$profile/user.js") == 1 ]]
+check $? "the pref is rewritten where it stands, not stacked"
+
+grep -q 'browser.startup.homepage' "$profile/user.js"
+check $? "firefox link leaves prefs of your own alone"
+
+NARCHY_APPS=firefox "$NARCHY" set tokyo-night >/dev/null 2>&1
+
 echo "unlinking"
 
 "$NARCHY" unlink $apps >/dev/null
@@ -331,10 +393,17 @@ check $? "unlink hands vscode settings back exactly as they were"
 diff "$SANDBOX/config.before/vlc/vlcrc" "$vlcrc" >/dev/null
 check $? "unlink puts vlcrc back, comment and default and all"
 
+diff -r "$SANDBOX/mozilla.before" "$HOME/.mozilla" >/dev/null &&
+  diff -r "$SANDBOX/config.before/mozilla" "$XDG_CONFIG_HOME/mozilla" >/dev/null
+check $? "unlink puts the firefox profiles back byte for byte"
+
 # Nothing may be written to a config that was never linked.
 "$NARCHY" set gruvbox >/dev/null
 [[ $(jq -r '."workbench.colorCustomizations"."editor.background" // "none"' "$settings") == "none" ]]
 check $? "set leaves vscode alone when it is not linked"
+
+! grep -q 'prefers-color-scheme.content-override' "$profile/user.js"
+check $? "set leaves firefox alone when it is not linked"
 
 echo "interactive"
 

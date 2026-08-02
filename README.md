@@ -108,6 +108,7 @@ Paths assume the default `XDG_STATE_HOME`. `narchy link` writes exactly these.
 | hyprpaper | `~/.config/hypr/hyprpaper.conf` | `source = ~/.local/state/narchy/current/hyprpaper.conf` |
 | vscode | `~/.config/Code/User/settings.json` | no line — see below |
 | vlc | `~/.config/vlc/vlcrc` | no line — see below |
+| firefox | `~/.config/mozilla/firefox/<profile>/chrome/userChrome.css` | `@import url("narchy.css");` at the **top**, beside a symlink of that name — see below |
 
 GTK stylesheets need absolute paths — `~` is not expanded there, so use the full
 path in the waybar and wofi imports.
@@ -167,6 +168,86 @@ it launched with until you restart it — narchy warns when it sees one running.
 Nothing is lost in the meantime: quitting VLC leaves `vlcrc` byte for byte as
 it was. Saving preferences from VLC's own dialog is the one thing that rewrites
 the file, and it will write narchy's key along with the rest.
+
+### Why Firefox is different, and where it stops
+
+Firefox has no include for a config and no theme narchy can hand it: an
+add-on theme has to be signed and installed, and a generated one is neither.
+What it does have is `userChrome.css` and `userContent.css`, two stylesheets it
+reads from the profile — so narchy renders those and points the profile at
+them.
+
+Three files come out of a `set`. `firefox.css` is the window around the page —
+tab strip, toolbars, address bar and its results, menus, sidebar.
+`firefox-content.css` is the pages Firefox draws itself: a new tab, settings,
+add-ons, `about:config`. `firefox.conf` is not a Firefox config at all, only
+the palette's light or dark written down for the app definition to read.
+
+Both stylesheets are `!important` throughout, which is not shouting. They are
+loaded as *user* stylesheets, and a user `!important` declaration is the one
+thing in CSS that outranks the browser's own — without it almost nothing lands.
+Most of the work is done by setting the custom properties Firefox paints its
+chrome from, so the colours reach widgets no selector names.
+
+`narchy link firefox` writes into every profile `profiles.ini` names — which
+one your launcher opens is not narchy's to guess, and a palette that misses the
+profile you actually use is worse than one written twice. Per profile it makes
+`chrome/narchy.css` and `chrome/narchy-content.css`, symlinks to the two
+generated sheets, and imports them by name:
+
+```
+@import url("narchy.css");          /* first line of chrome/userChrome.css   */
+@import url("narchy-content.css");  /* first line of chrome/userContent.css  */
+```
+
+Both go at the top, because CSS drops an `@import` that comes after a rule —
+and both are symlinks rather than an import naming narchy's file where it
+lies, because `userContent.css` applies to content documents, which are loaded
+by a sandboxed process that may not read outside the profile. An absolute
+`file://` import there is fetched by nobody and fails without a word; the
+chrome sheet, loaded by the parent process, would have taken one happily. One
+mechanism for both is one thing to know instead of two.
+
+Then, in `user.js`:
+
+```
+user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
+```
+
+Without that pref Firefox does not read either sheet.
+
+Profiles are looked for in `~/.config/mozilla/firefox`, where Firefox now
+keeps them, and in `~/.mozilla/firefox`, where it kept them before and still
+reads them from — whichever exists, or both. `NARCHY_FIREFOX_HOME` replaces
+that with a root of your own, or several separated by spaces: LibreWolf keeps
+its profiles in `~/.librewolf`, a Flatpak Firefox in
+`~/.var/app/org.mozilla.firefox/.mozilla/firefox`.
+
+The content sheet stops at `about:` pages on purpose. `userContent.css` can
+restyle every site you visit, and a palette that repaints the web is a
+different thing from one that paints the browser. What a site does get is which
+side of light and dark to render as, because that is the one thing colours
+cannot say for themselves: a page picks it from `prefers-color-scheme`, which
+follows the browser theme, and there is no theme here to follow. So narchy sets
+the pref Firefox's own **Settings → Website appearance** writes, and keeps it
+up to date on every switch:
+
+```
+user_pref("layout.css.prefers-color-scheme.content-override", 0);   // 1 for light
+```
+
+That is the only thing a `set` writes into your profile, and only after
+linking: `link` records the pref as it found it, which is both the backup
+`unlink` restores from and the mark that keeps `set` away from an unlinked
+profile — the same arrangement VS Code and VLC use. One wart is Firefox's, not
+narchy's: `user.js` is copied into `prefs.js` at every start, so unlinking
+stops narchy setting the pref but the last value it had stays until you change
+it in Settings.
+
+What none of this can do is switch a Firefox that is already open. The
+stylesheets are parsed once per run and cached for every window after, so a new
+window is no help either — a switch lands in the files immediately and shows up
+the next time Firefox starts. narchy warns when it sees one running.
 
 ### neovim
 
@@ -349,7 +430,8 @@ detection entirely.
 
 ## Supported out of the box
 
-hyprland, hyprpaper, waybar, wofi, mako, ghostty, btop, neovim, vscode, vlc.
+hyprland, hyprpaper, waybar, wofi, mako, ghostty, btop, neovim, vscode, vlc,
+firefox.
 
 ## Tests
 
