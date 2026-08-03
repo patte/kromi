@@ -294,6 +294,11 @@ profile pins the palette Firefox started with and the loader appears to do
 nothing. Run `narchy unlink firefox` before installing; the loader needs
 nothing from the profile, and `install` says so if it finds one still linked.
 
+Once it is in, `link` refuses firefox from the other side — named outright or
+reached by a bare `narchy link`, which is what keeps a configuration management
+run from quietly shadowing the loader on its way past. The other apps link as
+usual. `narchy-firefox-live uninstall` gives firefox back to `link`.
+
 ### neovim
 
 The generated colorscheme is derived from the palette, so it needs no plugin

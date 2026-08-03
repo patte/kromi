@@ -36,6 +36,8 @@ narchy-firefox-live [install|uninstall|status]
   install     put the loader in Firefox's install directory (needs root)
   uninstall   take it back out
   status      say whether it is there, whether it is current, who is listening
+  installed   say nothing, and exit 0 if the loader is in — what
+              `narchy link firefox` asks before it refuses to shadow one
   poke        tell every listening firefox to look now — narchy does this
               itself on every `set`, so it is here to be run by hand
 
@@ -140,6 +142,19 @@ listeners() {
   return 0
 }
 
+# Whether the loader is in, quietly, for `narchy link firefox` to ask before it
+# shadows one. State on disk rather than anything narchy remembers: a Firefox
+# update replaces the install directory and takes the loader with it, so a mark
+# kept elsewhere would go on claiming it was there.
+#
+# Out of date still counts as installed. An older loader is one that has to be
+# reinstalled, not one a linked profile may quietly override.
+installed() {
+  local dir
+  dir=$(app_dir) || return 1
+  [[ -f $dir/$CFG && -f $dir/$BOOTSTRAP ]]
+}
+
 can_knock() {
   command -v socat >/dev/null 2>&1 && return 0
   command -v nc >/dev/null 2>&1 && nc -h 2>&1 | grep -q -- '-U' && return 0
@@ -169,7 +184,7 @@ cmd_status() {
   dir=$(app_dir) || die "no firefox install found; set NARCHY_FIREFOX_APP"
   say "firefox   $dir"
 
-  if [[ -f $dir/$CFG && -f $dir/$BOOTSTRAP ]]; then
+  if installed; then
     if cmp -s "$SOURCE" "$dir/$CFG"; then
       say "loader    installed"
     else
@@ -255,6 +270,7 @@ main() {
     uninstall | remove) cmd_uninstall ;;
     poke) cmd_poke ;;
     status) cmd_status ;;
+    installed) installed ;;
     help | -h | --help) usage ;;
     *) die "unknown command: ${1} (try 'narchy-firefox-live help')" ;;
   esac

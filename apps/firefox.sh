@@ -126,8 +126,29 @@ reload() {
   apply "$told"
 }
 
+# The live loader is the other way to do all this, and the two do not compose:
+# a sheet imported by userChrome.css is loaded before one registered later and
+# wins, so a linked profile pins the palette Firefox opened with and the loader
+# looks broken. narchy-firefox-live says as much from its side when it installs
+# over a linked profile. This is the half that matters to a bare `narchy link`,
+# which would otherwise shadow a working loader without a word — and it asks
+# the helper rather than going looking, so there is one idea of where Firefox
+# is installed instead of two.
+live_installed() {
+  local helper="$NARCHY_PATH/bin/narchy-firefox-live"
+  [[ -x $helper ]] || return 1
+  "$helper" installed 2>/dev/null
+}
+
 link() {
   local profile name found=0
+
+  if live_installed; then
+    warn "narchy-firefox-live is installed; linking would shadow it"
+    warn "leave firefox to the loader, or 'narchy-firefox-live uninstall' first"
+    return 1
+  fi
+
   while read -r profile; do
     [[ -d $profile ]] || continue
     found=1
