@@ -11,7 +11,10 @@ trap 'rm -rf "$SANDBOX"' EXIT
 export XDG_CONFIG_HOME="$SANDBOX/config"
 export XDG_STATE_HOME="$SANDBOX/state"
 export HOME="$SANDBOX"
-mkdir -p "$XDG_CONFIG_HOME" "$XDG_STATE_HOME"
+# Sockets live here: the live session's are in the real one, and a suite that
+# could reach them could reload the editor someone is working in.
+export XDG_RUNTIME_DIR="$SANDBOX/run"
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_STATE_HOME" "$XDG_RUNTIME_DIR"
 
 pass=0
 fail=0
@@ -439,7 +442,6 @@ check $? "uninstall takes both files out again"
 # The knock, against a socket that answers and one that does not. python3 is
 # only standing in for a listening Firefox here.
 if command -v python3 >/dev/null 2>&1; then
-  export XDG_RUNTIME_DIR="$SANDBOX/run"
   mkdir -p "$XDG_RUNTIME_DIR/narchy"
   python3 -c '
 import os, socket, sys
@@ -467,6 +469,90 @@ open(sys.argv[2], "w").write("knocked")
   NARCHY_PATH=$ROOT "$ROOT/bin/narchy-firefox-live" poke >/dev/null || true
   [[ ! -e $XDG_RUNTIME_DIR/narchy/firefox-1.sock ]]
   check $? "a socket with nobody behind it is cleared away"
+fi
+
+echo "neovim live reload"
+
+# The one section that runs an app definition's real reload, because the
+# reload is the whole of what is being tested. Safe to: the instances are
+# started here, and the sockets it can reach are the sandbox's own.
+if command -v nvim >/dev/null 2>&1; then
+  themed_init="$SANDBOX/nvim-themed.lua"
+  own_init="$SANDBOX/nvim-own.lua"
+  printf 'pcall(dofile, "%s/narchy/current/neovim.lua")\n' "$XDG_STATE_HOME" >"$themed_init"
+  # An init.lua is free to take a colorscheme of its own below narchy's line.
+  # Spelled out rather than named, so the test does not turn on which schemes
+  # a given nvim build ships.
+  {
+    cat "$themed_init"
+    printf 'vim.g.colors_name = "sandbox"\n'
+    printf 'vim.api.nvim_set_hl(0, "Normal", { bg = "#123456" })\n'
+  } >"$own_init"
+
+  live() { NARCHY_APPS=neovim NARCHY_PATH="$ROOT" "$NARCHY" set "$1" >/dev/null; }
+
+  # Started on one palette, so switching to another is what has to show up.
+  live nord
+
+  nvim --headless -u "$themed_init" >/dev/null 2>&1 &
+  themed=$!
+  # A config under NVIM_APPNAME names its socket for the app rather than for
+  # nvim, and is reached by the same walk over running instances.
+  NVIM_APPNAME=narchytest nvim --headless -u "$themed_init" >/dev/null 2>&1 &
+  named=$!
+  nvim --headless -u "$own_init" >/dev/null 2>&1 &
+  own=$!
+
+  socket_of() {
+    local sock
+    for sock in "$XDG_RUNTIME_DIR"/*."$1".[0-9]*; do
+      [[ -S $sock ]] && {
+        printf '%s\n' "$sock"
+        return 0
+      }
+    done
+    return 1
+  }
+
+  started=0
+  for _ in $(seq 40); do
+    if socket_of "$themed" >/dev/null && socket_of "$named" >/dev/null &&
+      socket_of "$own" >/dev/null; then
+      started=1
+      break
+    fi
+    sleep 0.25
+  done
+
+  # What the instance is painting Normal with, which is the palette it is on.
+  normal_bg() {
+    local sock
+    sock=$(socket_of "$1") || return 1
+    timeout 5 nvim --server "$sock" --remote-expr \
+      'luaeval("string.format(\"#%06x\", vim.api.nvim_get_hl(0, {name=\"Normal\"}).bg or 0)")'
+  }
+
+  if ((started)); then
+    before=$(normal_bg "$themed")
+    live gruvbox
+    gruvbox_bg=$(palette_value "$ROOT/themes/gruvbox/colors.toml" background)
+
+    [[ $before != "$gruvbox_bg" && $(normal_bg "$themed") == "$gruvbox_bg" ]]
+    check $? "a running instance takes the new palette"
+
+    [[ $(normal_bg "$named") == "$gruvbox_bg" ]]
+    check $? "an instance under NVIM_APPNAME is reached too"
+
+    [[ $(normal_bg "$own") == "#123456" ]]
+    check $? "an instance with a colorscheme of its own is left on it"
+  else
+    echo "  skip neovim live reload (no instance came up)"
+  fi
+
+  kill "$themed" "$named" "$own" 2>/dev/null
+  wait "$themed" "$named" "$own" 2>/dev/null
+else
+  echo "  skip neovim live reload (no nvim)"
 fi
 
 echo "interactive"

@@ -298,8 +298,19 @@ nothing from the profile, and `install` says so if it finds one still linked.
 
 The generated colorscheme is derived from the palette, so it needs no plugin
 manager, no network and no colorscheme plugin — it works in a bare nvim and
-covers any palette, including your own. Running instances keep their colours;
-new ones start themed.
+covers any palette, including your own.
+
+Instances already open change with everything else. nvim listens on a socket
+of its own from the moment it starts — no `--listen`, no plugin, nothing to
+set up — and `narchy set` walks the running ones and has each read the file
+again, firing `ColorScheme` so statuslines and the like re-colour with it.
+
+Only the instances still wearing narchy's colours: an `init.lua` that picks a
+colorscheme below narchy's line has already overridden it there, and a theme
+switch is no reason to take that window off the scheme you chose. An instance
+that is busy when the switch arrives — at a hit-enter prompt, waiting on a `:!`
+command — is left as it is rather than waited on, and takes the palette at the
+next switch or when you `:source` the file yourself.
 
 ## Themes
 
@@ -484,7 +495,9 @@ firefox.
 ./test/run.sh
 ```
 
-Runs against a throwaway XDG root and never signals a running session.
+Runs against a throwaway XDG root and never signals a running session — the
+one reload it exercises for real is neovim's, against headless instances it
+starts itself, on sockets inside the sandbox.
 
 ## Credit
 

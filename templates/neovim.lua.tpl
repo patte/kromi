@@ -133,3 +133,10 @@ local ansi = {
 for i, colour in ipairs(ansi) do
   vim.g["terminal_color_" .. (i - 1)] = colour
 end
+
+-- Plugins that colour themselves — statuslines, tab bars, indent guides —
+-- rebuild their highlights on this event. :colorscheme fires it; a file read
+-- with dofile has to say so itself, or a live switch leaves them behind on
+-- the palette they started with. pcall because one plugin throwing here is
+-- not a reason for the rest of the colours to go unset.
+pcall(vim.api.nvim_exec_autocmds, "ColorScheme", { pattern = "narchy" })
