@@ -11,6 +11,9 @@ The engine is bash and sed. There is nothing to compile and no daemon. It does
 not install software, manage your configs, or care which distribution you run:
 it recolours whatever it finds.
 
+https://github.com/user-attachments/assets/ed646693-63d0-411f-a5fc-e57ae086aa4b
+
+
 ## Install
 
 ```sh
