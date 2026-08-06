@@ -8,7 +8,16 @@ window {
   font-family: monospace;
 }
 
-#outer-box { margin: 8px; }
+/* The 8px gutter is on the widgets below, not here, and that is load-bearing.
+   wofi sizes its window to 50% by 40% of the screen and re-asserts that on every
+   keystroke, while GTK grows the window to whatever the outer box needs. Give
+   this box a margin or a padding and the two settle on numbers 16px apart, so the
+   launcher twitches out of its bottom-right corner as you type. An inset on the
+   search field or the rows costs the window nothing — the scrolled area's own
+   minimum already sets the natural size, and these stay well inside it. Putting
+   the gutter on `window` does not work either: a GtkWindow draws its border round
+   the padding box, which leaves the search field outside the frame. */
+#outer-box { padding: 0; }
 
 #input {
   background-color: {{ background }};
@@ -16,7 +25,7 @@ window {
   border: none;
   border-bottom: 1px solid {{ color8 }};
   padding: 6px 8px;
-  margin-bottom: 6px;
+  margin: 8px 8px 6px 8px;
 }
 
 #input image { color: {{ foreground }}; }
@@ -25,6 +34,7 @@ window {
 
 #entry {
   padding: 5px 8px;
+  margin: 0 8px;
   border-radius: 4px;
   background-color: transparent;
 }
