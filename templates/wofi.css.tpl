@@ -27,6 +27,14 @@ window {
   margin: 8px 8px 6px 8px;
 }
 
+/* GTK draws its own ring round a focused entry, in the stock Adwaita blue and
+   from a box-shadow rather than a border, so `border: none` above never reached
+   it. Take it in the selection colour instead, which sits close to the text and
+   leaves the accent to the frame round the window. It appears on the first
+   keystroke and not when the launcher opens, because GTK3 holds the ring back
+   until the window has seen the keyboard. */
+#input:focus { box-shadow: inset 0 0 0 1px {{ selection_background }}; }
+
 #input image { color: {{ foreground }}; }
 
 #scroll { margin: 0; }
