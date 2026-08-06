@@ -23,7 +23,6 @@ window {
   background-color: {{ background }};
   color: {{ foreground }};
   border: none;
-  border-bottom: 1px solid {{ color8 }};
   padding: 6px 8px;
   margin: 8px 8px 6px 8px;
 }
