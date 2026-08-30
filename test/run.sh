@@ -820,8 +820,20 @@ check $? "setup names the wallpaper when the theme has one"
 grep -q '^hyprpaper is not running' "$SANDBOX/setup.out" && [[ -f $XDG_STATE_HOME/started-hyprpaper ]]
 check $? "setup starts the wallpaper daemon when it is not running"
 
-grep -q 'exec-once = hyprpaper' "$SANDBOX/setup.out"
-check $? "setup says how to start the daemon at login"
+# The fixture's start leaves running false, which is a start that did not
+# take — and setup has to say that rather than claim a wallpaper is up.
+grep -q '^hyprpaper did not start' "$SANDBOX/setup.out"
+check $? "setup notices when the daemon does not come up"
+
+grep -q 'exec-once = hyprpaper.*docs/integrations.md#hyprpaper' "$SANDBOX/setup.out"
+check $? "setup says how to start the daemon at login, and where to read more"
+
+# A start that takes is reported as one.
+echo 'start() { touch "$XDG_STATE_HOME/running-$APP"; }' >>"$FIXTURE/apps/hyprpaper.sh"
+KROMI_APPS=hyprpaper "$KROMI" setup nord >"$SANDBOX/setup-started.out" 2>&1 </dev/null
+grep -q '^started hyprpaper$' "$SANDBOX/setup-started.out"
+check $? "setup reports a daemon it started"
+rm -f "$XDG_STATE_HOME/running-hyprpaper"
 
 touch "$XDG_STATE_HOME/running-hyprpaper"
 KROMI_APPS=hyprpaper "$KROMI" setup nord >"$SANDBOX/setup-running.out" 2>&1 </dev/null
@@ -840,6 +852,20 @@ check $? "setup does not fetch unless told to"
 grep -q '^source = .*kromi/current/hyprpaper.conf$' "$XDG_CONFIG_HOME/hypr/hyprpaper.conf"
 check $? "setup links hyprpaper even before there is a wallpaper"
 KROMI_APPS=hyprpaper "$KROMI" unlink >/dev/null
+
+# The closing lines say what is linked now, read back from the configs — so
+# an app whose link failed is named, not buried under 'Done'.
+KROMI_APPS="hyprland ghostty" "$KROMI" setup gruvbox >"$SANDBOX/setup-sum.out" 2>&1 </dev/null
+grep -q '^Linked: hyprland ghostty$' "$SANDBOX/setup-sum.out" && ! grep -q '^Not linked' "$SANDBOX/setup-sum.out"
+check $? "setup ends by listing what is linked"
+KROMI_APPS="hyprland ghostty" "$KROMI" unlink >/dev/null
+
+mv "$XDG_CONFIG_HOME/hypr/hyprland.lua" "$XDG_CONFIG_HOME/hypr/hyprland.lua.away"
+KROMI_APPS="hyprland ghostty" "$KROMI" setup gruvbox >"$SANDBOX/setup-fail.out" 2>&1 </dev/null
+grep -q '^Not linked: hyprland$' "$SANDBOX/setup-fail.out" && grep -q '^Linked: ghostty$' "$SANDBOX/setup-fail.out"
+check $? "setup names an app whose link failed"
+mv "$XDG_CONFIG_HOME/hypr/hyprland.lua.away" "$XDG_CONFIG_HOME/hypr/hyprland.lua"
+KROMI_APPS="hyprland ghostty" "$KROMI" unlink >/dev/null
 
 # Without a theme named, setup keeps the one already set.
 [[ $("$KROMI" current) == gruvbox ]]

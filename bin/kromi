@@ -784,11 +784,22 @@ setup_wallpaper_daemons() {
     printf '%s is not running, so nothing is showing it.\n' "$app"
     if ask "Start $app now?" y; then
       app_run "$app" start
-      sleep 0.5
-      app_run "$app" reload || true
+      # Give it a moment, then look: a start that did not take is a bare
+      # desktop with a message saying otherwise.
+      local i
+      for i in 1 2 3 4 5 6 7 8 9 10; do
+        app_run "$app" running && break
+        sleep 0.2
+      done
+      if app_run "$app" running; then
+        app_run "$app" reload || true
+        printf 'started %s\n' "$app"
+      else
+        printf '%s did not start; try running it by hand to see why\n' "$app"
+      fi
     fi
     hint=$(app_run "$app" _autostart_hint)
-    [[ -n $hint ]] && printf 'To have it start at login: %s\n' "$hint"
+    [[ -n $hint ]] && printf 'To have it start at login: %s — see docs/integrations.md#%s\n' "$hint" "$app"
   done
 }
 
@@ -849,7 +860,17 @@ cmd_setup() {
     fi
   fi
 
-  printf '\nDone. Switch any time with kromi set <theme>, or browse with kromi interactive.\n'
+  # What actually happened, read back from the configs rather than from
+  # what was asked: a link that failed is one thing the messages above have
+  # already explained, and one thing this line makes impossible to miss.
+  local -a linked=() unlinked=()
+  for app in "${apps[@]}"; do
+    if app_run "$app" linked 2>/dev/null; then linked+=("$app"); else unlinked+=("$app"); fi
+  done
+  printf '\n'
+  ((${#linked[@]})) && printf 'Linked: %s\n' "${linked[*]}"
+  ((${#unlinked[@]})) && printf 'Not linked: %s\n' "${unlinked[*]}"
+  printf 'Switch any time with kromi set <theme>, or browse with kromi interactive.\n'
 }
 
 cmd_help() {

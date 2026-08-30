@@ -80,9 +80,12 @@ starting the daemon:
 exec-once = hyprpaper
 ```
 
-or `hl.exec_cmd("hyprpaper")` in a Lua config. `kromi setup` offers to start
-it when it is not running, and prints that line. While Hyprpaper is running,
-switches and `kromi wallpaper next` reach it over IPC.
+or `hl.exec_cmd("hyprpaper")` in a Lua config. That line is yours to add:
+kromi's link is one `source` line in `hyprpaper.conf`, and starting programs
+is Hyprland's job, not a theme's. `kromi setup` offers to start the daemon
+for the current session when it is not running, and prints this reminder.
+While Hyprpaper is running, switches and `kromi wallpaper next` reach it over
+IPC.
 `kromi wallpaper apply` reapplies the current image to a running daemon,
 including in a manually wired setup.
 
