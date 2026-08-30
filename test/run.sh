@@ -902,6 +902,36 @@ check $? "a theme with nothing upstream is not an error"
 [[ ! -d $DEST/no-such-theme ]]
 check $? "no empty directory is left for a theme with nothing upstream"
 
+echo "install"
+
+# Against the checkout itself as the remote, so this stays offline. HOME is
+# the sandbox already, which is where the defaults land.
+INSTALL_HOME="$SANDBOX/install-home"
+mkdir -p "$INSTALL_HOME"
+if ! git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "  skip install (checkout is not a git repository)"
+else
+  HOME=$INSTALL_HOME KROMI_REPO=$ROOT PATH="$INSTALL_HOME/.local/bin:$PATH" \
+    bash "$ROOT/install.sh" >"$SANDBOX/install.out" 2>&1
+  check $? "install.sh runs through"
+
+  [[ $(readlink "$INSTALL_HOME/.local/bin/kromi") == "$INSTALL_HOME/.local/share/kromi/bin/kromi" ]]
+  check $? "install.sh clones and links kromi into ~/.local/bin"
+
+  grep -q '^next: kromi setup$' "$SANDBOX/install.out" && ! grep -q 'not on your PATH' "$SANDBOX/install.out"
+  check $? "install.sh points at setup rather than running it"
+
+  HOME=$INSTALL_HOME KROMI_REPO=$ROOT PATH="/usr/bin:/bin" \
+    bash "$ROOT/install.sh" >"$SANDBOX/install2.out" 2>&1
+  grep -q '^updated ' "$SANDBOX/install2.out" && grep -q 'not on your PATH' "$SANDBOX/install2.out"
+  check $? "a second run updates in place and notices a PATH without ~/.local/bin"
+
+  # The linked copy has to be a working kromi, not just a file.
+  [[ $(HOME=$INSTALL_HOME XDG_CONFIG_HOME=$INSTALL_HOME/.config XDG_STATE_HOME=$INSTALL_HOME/.local/state \
+    KROMI_PATH= KROMI_APPS=probe "$INSTALL_HOME/.local/bin/kromi" set nord 2>/dev/null) == "kromi: Nord" ]]
+  check $? "the installed kromi runs from its own checkout"
+fi
+
 echo
 printf '%s passed, %s failed\n' "$pass" "$fail"
 [[ $fail == 0 ]]

@@ -39,8 +39,16 @@ see [App integrations](docs/integrations.md) for the exact trade-offs.
 ## Install
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/patte/kromi/main/install.sh | bash
+```
+
+That clones kromi into `~/.local/share/kromi` and links `kromi` into
+`~/.local/bin`; run it again to update. It is only ever these two lines, if
+you would rather do them yourself:
+
+```sh
 git clone https://github.com/patte/kromi ~/.local/share/kromi
-ln -s ~/.local/share/kromi/bin/kromi ~/.local/bin/kromi
+mkdir -p ~/.local/bin && ln -s ~/.local/share/kromi/bin/kromi ~/.local/bin/kromi
 ```
 
 ## Quick start
