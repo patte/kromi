@@ -887,9 +887,14 @@ export KROMI_WALLPAPERS_REF="v-test"
 fetch() { KROMI_PATH=$ROOT "$KROMI" wallpaper fetch "$@"; }
 DEST="$XDG_CONFIG_HOME/kromi/wallpapers"
 
-fetch nord gruvbox >/dev/null 2>&1
+# gruvbox is the theme on screen and has had no picture until now.
+KROMI_APPS=dummy "$KROMI" set gruvbox >/dev/null
+fetch nord gruvbox >"$SANDBOX/fetch.out" 2>&1
 [[ -f $DEST/nord/a.jpg && -f $DEST/nord/b.jpg && -f $DEST/gruvbox/c.jpg ]]
 check $? "wallpapers are fetched into the user's wallpapers dir"
+
+[[ $("$KROMI" wallpaper) == "$DEST/gruvbox/c.jpg" ]] && grep -q '^now showing c.jpg$' "$SANDBOX/fetch.out"
+check $? "a fetch for the theme on screen puts its wallpaper up at once"
 
 KROMI_PATH=$ROOT "$KROMI" wallpaper list >"$SANDBOX/wl.txt" 2>&1
 grep -q '^nord *2$' "$SANDBOX/wl.txt" && grep -q '^gruvbox *1$' "$SANDBOX/wl.txt"

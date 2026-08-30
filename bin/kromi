@@ -655,10 +655,24 @@ cmd_wallpaper() {
   # The two that reach for the network live in their own file, so the rest of
   # kromi never has to know git exists.
   case $action in
-    fetch | list)
+    list)
       # shellcheck disable=SC1091
       source "$KROMI_PATH/lib/wallpaper-fetch.sh"
-      if [[ $action == list ]]; then wallpaper_fetch_list; else wallpaper_fetch "$@"; fi
+      wallpaper_fetch_list
+      return
+      ;;
+    fetch)
+      # shellcheck disable=SC1091
+      source "$KROMI_PATH/lib/wallpaper-fetch.sh"
+      wallpaper_fetch "$@"
+      # A picture that has just arrived for the theme on screen should be on
+      # screen: apply the theme again, which points the link and reloads.
+      local theme
+      theme=$(cat "$CURRENT/.name" 2>/dev/null || true)
+      if [[ -n $theme && ! -L $CURRENT/wallpaper ]] && has_wallpaper "$theme"; then
+        cmd_set "$theme" >/dev/null
+        printf 'now showing %s\n' "$(basename "$(readlink "$CURRENT/wallpaper")")"
+      fi
       return
       ;;
   esac
@@ -825,8 +839,6 @@ cmd_setup() {
     printf 'No wallpaper for %s yet.\n' "$theme"
     if ask "Fetch wallpaper sets from Omarchy? (needs git; the pictures are theirs to license, yours to look at)" n; then
       cmd_wallpaper fetch
-      # Now that there is one to point at, and so the daemon shows it.
-      cmd_set "$theme" >/dev/null
       if [[ -L $CURRENT/wallpaper ]]; then
         printf 'Wallpaper: %s\n' "$(readlink "$CURRENT/wallpaper")"
         setup_wallpaper_daemons "${installed[@]}"
