@@ -110,9 +110,8 @@ apply() {
 # so the usual case is that there is no socket directory to look in and this
 # costs a test on a path.
 knock() {
-  local helper="$KROMI_PATH/bin/kromi-firefox-live"
-  [[ -d ${XDG_RUNTIME_DIR:-/tmp}/kromi && -x $helper ]] || return 1
-  "$helper" poke >/dev/null 2>&1
+  [[ -d ${XDG_RUNTIME_DIR:-/tmp}/kromi ]] || return 1
+  "$KROMI_BIN" firefox-live poke >/dev/null 2>&1
 }
 
 # There is no reload of Firefox's own, and no new window to fall back on
@@ -129,23 +128,19 @@ reload() {
 # The live loader is the other way to do all this, and the two do not compose:
 # a sheet imported by userChrome.css is loaded before one registered later and
 # wins, so a linked profile pins the palette Firefox opened with and the loader
-# looks broken. kromi-firefox-live says as much from its side when it installs
-# over a linked profile. This is the half that matters to a bare `kromi link`,
-# which would otherwise shadow a working loader without a word — and it asks
-# the helper rather than going looking, so there is one idea of where Firefox
-# is installed instead of two.
-live_installed() {
-  local helper="$KROMI_PATH/bin/kromi-firefox-live"
-  [[ -x $helper ]] || return 1
-  "$helper" installed 2>/dev/null
-}
+# looks broken. `kromi firefox-live install` says as much from its side when it
+# installs over a linked profile. This is the half that matters to a bare
+# `kromi link`, which would otherwise shadow a working loader without a word —
+# and it asks that command rather than going looking, so there is one idea of
+# where Firefox is installed instead of two.
+live_installed() { "$KROMI_BIN" firefox-live installed 2>/dev/null; }
 
 link() {
   local profile name found=0
 
   if live_installed; then
-    warn "kromi-firefox-live is installed; linking would shadow it"
-    warn "leave firefox to the loader, or 'kromi-firefox-live uninstall' first"
+    warn "the firefox-live loader is installed; linking would shadow it"
+    warn "leave firefox to the loader, or 'kromi firefox-live uninstall' first"
     return 1
   fi
 

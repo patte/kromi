@@ -1,20 +1,16 @@
-#!/usr/bin/env bash
-# kromi-firefox-live — make a running Firefox follow `kromi set`.
+# kromi firefox-live — make a running Firefox follow `kromi set`.
 #
-# Kept out of `kromi` on purpose, and out of `kromi link` with it. Everything
-# the tool itself does happens inside your home directory and undoes itself.
-# This does not: Firefox only runs privileged JavaScript from its own install
-# directory, so the loader goes in beside the program, as root, and a package
-# update that replaces that directory takes it away again.
+# Sourced by `kromi` for this one subcommand, and kept out of `kromi link` on
+# purpose. Everything link does happens inside your home directory and undoes
+# itself. This does not: Firefox only runs privileged JavaScript from its own
+# install directory, so the loader goes in beside the program, as root, and a
+# package update that replaces that directory takes it away again.
 #
 # What it buys is the one thing linking cannot do. Firefox parses
 # userChrome.css once per run and caches it for every window after, so a linked
 # profile shows a switch at its next start. The loader watches kromi's output
 # and registers it into the windows already open, which makes a switch land
 # while you are looking at it.
-set -euo pipefail
-
-KROMI_PATH="${KROMI_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}"
 
 SOURCE="$KROMI_PATH/apps/firefox-live.cfg"
 CFG="kromi-live.cfg"
@@ -23,15 +19,11 @@ BOOTSTRAP="defaults/pref/kromi-autoconfig.js"
 # Where a listening Firefox puts its socket, one per process.
 KNOCKS="${XDG_RUNTIME_DIR:-/tmp}/kromi"
 
-die() {
-  printf 'kromi-firefox-live: %s\n' "$*" >&2
-  exit 1
-}
 say() { printf '%s\n' "$*"; }
 
 usage() {
   cat <<'USAGE'
-kromi-firefox-live [install|uninstall|status]
+kromi firefox-live [install|uninstall|status]
 
   install     put the loader in Firefox's install directory (needs root)
   uninstall   take it back out
@@ -222,7 +214,7 @@ cmd_install() {
   as_root "$dir" install -d -m 0755 "$dir/defaults/pref"
   # Written rather than shipped: it is three lines, and they name the file above.
   as_root "$dir" tee "$dir/$BOOTSTRAP" >/dev/null <<EOF
-// Installed by kromi-firefox-live. Points Firefox at $CFG beside the program.
+// Installed by kromi firefox-live. Points Firefox at $CFG beside the program.
 pref("general.config.filename", "$CFG");
 pref("general.config.obscure_value", 0);
 pref("general.config.sandbox_enabled", false);
@@ -264,7 +256,7 @@ cmd_uninstall() {
   say "— 'kromi link firefox' is the way to keep them without this."
 }
 
-main() {
+firefox_live_main() {
   case ${1:-status} in
     install) cmd_install ;;
     uninstall | remove) cmd_uninstall ;;
@@ -272,8 +264,6 @@ main() {
     status) cmd_status ;;
     installed) installed ;;
     help | -h | --help) usage ;;
-    *) die "unknown command: ${1} (try 'kromi-firefox-live help')" ;;
+    *) die "unknown command: ${1} (try 'kromi firefox-live help')" ;;
   esac
 }
-
-main "$@"

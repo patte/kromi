@@ -3,6 +3,8 @@
 set -euo pipefail
 
 KROMI_PATH="${KROMI_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}"
+# This program, for an app definition that needs to run a subcommand of it.
+KROMI_BIN=$(readlink -f "${BASH_SOURCE[0]}")
 KROMI_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/kromi"
 KROMI_STATE="${XDG_STATE_HOME:-$HOME/.local/state}/kromi"
 
@@ -712,6 +714,8 @@ kromi — apply one colour palette across a desktop's apps.
   kromi apps             list app definitions, marking detected ones
   kromi link [app...]    point app configs at kromi's output (opt-in)
   kromi unlink [app...]  undo link
+  kromi firefox-live     recolour an open Firefox on every set; needs root,
+    [install|uninstall]  see 'kromi firefox-live help'
 
 `set` only ever writes inside kromi's own state directory. `link` is the
 only command that touches your app configs; skip it if you manage those
@@ -731,6 +735,11 @@ main() {
     apps) cmd_apps ;;
     link) cmd_link "$@" ;;
     unlink) cmd_unlink "$@" ;;
+    firefox-live)
+      # shellcheck disable=SC1091
+      source "$KROMI_PATH/lib/firefox-live.sh"
+      firefox_live_main "$@"
+      ;;
     help | -h | --help) cmd_help ;;
     *) die "unknown command: $cmd (try 'kromi help')" ;;
   esac

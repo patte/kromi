@@ -417,25 +417,25 @@ mkdir -p "$FFAPP/defaults/pref"
 printf '#!/bin/sh\n' >"$FFAPP/firefox"
 chmod +x "$FFAPP/firefox"
 
-KROMI_PATH=$ROOT KROMI_FIREFOX_APP=$FFAPP "$ROOT/bin/kromi-firefox-live" install >/dev/null
+KROMI_PATH=$ROOT KROMI_FIREFOX_APP=$FFAPP "$KROMI" firefox-live install >/dev/null
 [[ -f $FFAPP/kromi-live.cfg && -f $FFAPP/defaults/pref/kromi-autoconfig.js ]]
 check $? "the live loader installs beside the program"
 
 grep -q '"general.config.filename", "kromi-live.cfg"' "$FFAPP/defaults/pref/kromi-autoconfig.js"
 check $? "the bootstrap names the loader"
 
-KROMI_PATH=$ROOT KROMI_FIREFOX_APP=$FFAPP "$ROOT/bin/kromi-firefox-live" status >"$SANDBOX/st.txt" 2>&1
+KROMI_PATH=$ROOT KROMI_FIREFOX_APP=$FFAPP "$KROMI" firefox-live status >"$SANDBOX/st.txt" 2>&1
 grep -q '^loader    installed$' "$SANDBOX/st.txt"
 check $? "status reports it in place"
 grep -q '^loader    installed$' "$SANDBOX/st.txt" || sed 's/^/       /' "$SANDBOX/st.txt"
 
 # There is one general.config.filename, and it may be somebody else's.
 printf 'pref("general.config.filename", "theirs.cfg");\n' >"$FFAPP/defaults/pref/theirs.js"
-! KROMI_PATH=$ROOT KROMI_FIREFOX_APP=$FFAPP "$ROOT/bin/kromi-firefox-live" install >/dev/null 2>&1
+! KROMI_PATH=$ROOT KROMI_FIREFOX_APP=$FFAPP "$KROMI" firefox-live install >/dev/null 2>&1
 check $? "install refuses to take over another autoconfig"
 rm -f "$FFAPP/defaults/pref/theirs.js"
 
-KROMI_PATH=$ROOT KROMI_FIREFOX_APP=$FFAPP "$ROOT/bin/kromi-firefox-live" uninstall >/dev/null
+KROMI_PATH=$ROOT KROMI_FIREFOX_APP=$FFAPP "$KROMI" firefox-live uninstall >/dev/null
 [[ ! -e $FFAPP/kromi-live.cfg && ! -e $FFAPP/defaults/pref/kromi-autoconfig.js ]]
 check $? "uninstall takes both files out again"
 
@@ -459,14 +459,14 @@ open(sys.argv[2], "w").write("knocked")
     python3 -c 'import time; time.sleep(0.2)'
   done
 
-  KROMI_PATH=$ROOT "$ROOT/bin/kromi-firefox-live" poke >/dev/null
+  KROMI_PATH=$ROOT "$KROMI" firefox-live poke >/dev/null
   wait $listener 2>/dev/null
   [[ -f $SANDBOX/knocked ]]
   check $? "poke reaches a listening firefox"
 
   # Nothing is behind it now, and a socket nobody answers is one kromi would
   # knock on for the rest of the session.
-  KROMI_PATH=$ROOT "$ROOT/bin/kromi-firefox-live" poke >/dev/null || true
+  KROMI_PATH=$ROOT "$KROMI" firefox-live poke >/dev/null || true
   [[ ! -e $XDG_RUNTIME_DIR/kromi/firefox-1.sock ]]
   check $? "a socket with nobody behind it is cleared away"
 fi
