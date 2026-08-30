@@ -22,21 +22,21 @@ die() {
   exit 1
 }
 
-command -v git >/dev/null 2>&1 || die "git is required"
+command -v git >/dev/null 2>&1 || die "git is required; install it and try again"
 
 # A .git is not proof of kromi: update only a checkout that has the program,
 # and link only one that still has it afterwards.
 if [[ -d $DIR/.git ]]; then
-  [[ -x $DIR/bin/kromi ]] || die "$DIR is not a kromi checkout (no bin/kromi); set KROMI_DIR"
-  git -C "$DIR" pull --ff-only --quiet || die "could not update $DIR; pull it by hand"
-  printf 'updated %s\n' "$DIR"
+  [[ -x $DIR/bin/kromi ]] || die "$DIR is not a kromi checkout; set KROMI_DIR to another location"
+  git -C "$DIR" pull --ff-only --quiet || die "could not update $DIR; run git pull there to inspect the error"
+  printf 'Updated kromi in %s.\n' "$DIR"
 elif [[ -e $DIR ]]; then
-  die "$DIR exists and is not a git checkout; move it aside, or set KROMI_DIR"
+  die "$DIR already exists and is not a git checkout; move it or set KROMI_DIR"
 else
-  git clone --quiet "$REPO" "$DIR" || die "could not clone $REPO"
-  printf 'installed %s\n' "$DIR"
+  git clone --quiet "$REPO" "$DIR" || die "could not clone $REPO into $DIR"
+  printf 'Installed kromi in %s.\n' "$DIR"
 fi
-[[ -x $DIR/bin/kromi ]] || die "$DIR has no bin/kromi after that; not linking it"
+[[ -x $DIR/bin/kromi ]] || die "$DIR/bin/kromi is missing or not executable"
 
 # A name on PATH is not ours to take: link over nothing, or over a link that
 # already points into this checkout.
@@ -45,23 +45,24 @@ target="$BIN_DIR/kromi"
 if [[ -L $target ]]; then
   case $(readlink "$target") in
     "$DIR"/*) ;;
-    *) die "$target is a link to $(readlink "$target"), not to $DIR; remove it first" ;;
+    *) die "$target points to $(readlink "$target"); remove it or set KROMI_BIN_DIR" ;;
   esac
 elif [[ -e $target ]]; then
-  die "$target exists and is not a link to $DIR; remove it first, or set KROMI_BIN_DIR"
+  die "$target already exists; remove it or set KROMI_BIN_DIR"
 fi
 
 mkdir -p "$BIN_DIR"
 ln -sfn "$DIR/bin/kromi" "$target"
-printf 'linked %s\n' "$target"
+printf 'Command installed as %s.\n' "$target"
 
 # Name the command the way this shell can actually run it.
 case ":$PATH:" in
   *":$BIN_DIR:"*)
-    printf '\nnext: kromi setup\n'
+    printf '\nNext: kromi setup\n'
     ;;
   *)
-    printf '\nnote: %s is not on your PATH; add it to run kromi by name\n' "$BIN_DIR"
-    printf '\nnext: %s/kromi setup\n' "$BIN_DIR"
+    printf '\n%s is not on your PATH, so `kromi` is not available by name yet.\n' "$BIN_DIR"
+    printf 'Add that directory to PATH when convenient.\n'
+    printf '\nNext: %s/kromi setup\n' "$BIN_DIR"
     ;;
 esac

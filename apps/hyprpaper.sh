@@ -39,7 +39,7 @@ link() {
   local sourced
   sourced=$(theme_file hyprpaper.conf)
   [[ -f $sourced ]] || {
-    warn "no $sourced to source; run 'kromi set <theme>' first"
+    warn "$sourced does not exist; run 'kromi set <theme>' first"
     return 1
   }
   prepend_line "$config" "$include"

@@ -10,12 +10,73 @@ tool.
 kromi set tokyo-night
 ```
 
-kromi is Bash and sed. There is nothing to compile and no daemon. It does not
-install software or assume a distribution. The only change it makes to an
-app's config is one pointer line — added when you ask, listed in full under
-[What link edits](#what-link-edits), and removed by `kromi unlink`.
-
 https://github.com/user-attachments/assets/ed646693-63d0-411f-a5fc-e57ae086aa4b
+
+kromi is Bash and sed. There is nothing to compile, no daemon, and no assumed
+distribution. It does not install your apps or take over their configs:
+
+- Theme switches write generated files inside kromi's own state directory.
+- Connecting an app is a separate, one-time config change that you approve.
+- `kromi unlink` removes that connection and restores settings kromi replaced.
+
+## Install
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/patte/kromi/main/install.sh | bash
+```
+
+The installer clones kromi into `~/.local/share/kromi` and links the command
+into `~/.local/bin`. Run it again to update.
+
+To install those pieces yourself instead:
+
+```sh
+git clone https://github.com/patte/kromi ~/.local/share/kromi
+mkdir -p ~/.local/bin && ln -s ~/.local/share/kromi/bin/kromi ~/.local/bin/kromi
+```
+
+## Quick start
+
+```sh
+kromi setup
+```
+
+Setup walks you through the first run. It:
+
+1. finds supported apps and asks before connecting their configs;
+2. offers Firefox live switching when Firefox is installed;
+3. offers to download wallpapers when a wallpaper app is available;
+4. applies Tokyo Night on a fresh install, then offers to browse other themes.
+
+The questions come before anything changes on screen. Every config change is
+listed under [Config changes and undoing them](#config-changes-and-undoing-them)
+and can be reversed with `kromi unlink`.
+
+After setup, switch themes directly or browse them interactively:
+
+```sh
+kromi set nord
+kromi interactive
+```
+
+If you manage your own dotfiles, skip `setup` and add the connections from
+[Manual setup](docs/integrations.md#manual-setup) yourself.
+
+## Everyday use
+
+```sh
+kromi set <theme>        # apply a theme
+kromi list               # list themes and mark the current one
+kromi current            # print the current theme
+kromi interactive        # browse themes: n/p step, a auto, r restore, x keep
+
+kromi wallpaper next     # use the current theme's next wallpaper
+kromi wallpaper fetch    # download wallpaper sets (needs git)
+
+kromi apps               # show detected apps and whether they are connected
+kromi link [app...]      # connect detected or named apps
+kromi unlink [app...]    # remove those connections
+```
 
 ## Supported apps
 
@@ -34,77 +95,45 @@ https://github.com/user-attachments/assets/ed646693-63d0-411f-a5fc-e57ae086aa4b
 | Firefox | browser chrome and internal pages | after restart, or immediately with `kromi firefox-live` |
 
 VS Code, VLC, and Firefox cannot consume a generated config as directly as the
-other apps. kromi handles them without taking over the rest of their settings;
-see [App integrations](docs/integrations.md) for the exact trade-offs.
-
-## Install
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/patte/kromi/main/install.sh | bash
-```
-
-That clones kromi into `~/.local/share/kromi` and links `kromi` into
-`~/.local/bin`; run it again to update. If you would rather do them yourself:
-
-```sh
-git clone https://github.com/patte/kromi ~/.local/share/kromi
-mkdir -p ~/.local/bin && ln -s ~/.local/share/kromi/bin/kromi ~/.local/bin/kromi
-```
-
-## Quick start
-
-```sh
-kromi setup
-```
-
-That lists the apps it found and asks whether to edit their configs (see
-[What link edits](#what-link-edits)), asks about Firefox's live loader, offers
-to fetch wallpapers if Hyprpaper is installed, applies Tokyo Night, and then
-offers to browse the themes so you can pick one. Nothing changes on screen
-until the questions are answered, and `kromi unlink` undoes the edits. From
-then on, switching is one command:
-
-```sh
-kromi set nord
-kromi interactive      # or browse: n/p step, a auto, r restore, x keep
-```
-
-If you would rather wire your configs yourself, skip `setup` and add the lines
-from [App integrations](docs/integrations.md#manual-setup) instead.
-
-## Usage
-
-```sh
-kromi set <theme>        # render and apply a theme
-kromi list               # list themes and mark the current one
-kromi current            # print the current theme
-kromi interactive        # browse themes and keep the one you stop on
-
-kromi apps               # list integrations: * detected, and linked or not
-kromi link [app...]      # connect detected or named apps
-kromi unlink [app...]    # remove those connections
-
-kromi wallpaper next     # cycle through the current theme's wallpapers
-kromi wallpaper fetch    # download wallpaper sets (needs git)
-```
+other apps. kromi updates only the settings it needs; see
+[App integrations](docs/integrations.md) for the exact behavior and trade-offs.
 
 ## Wallpapers
 
-kromi ships none: a palette is a list of numbers, a wallpaper is somebody's
-picture. Put your own under `~/.config/kromi/wallpapers/<theme>/`, or fetch
-the sets Omarchy uses with `kromi wallpaper fetch [theme...]`. Existing files
-are never overwritten. A theme without pictures still applies; Hyprland paints
-the bare desktop in the palette's background instead.
+kromi ships without wallpapers: a palette is a list of numbers, while a
+wallpaper is somebody's picture. Put your own images under
+`~/.config/kromi/wallpapers/<theme>/`, or fetch the sets Omarchy uses:
 
-Fetched images are for your own use — the collection mixes freely licensed
+```sh
+kromi wallpaper fetch [theme...]
+```
+
+Existing files are never overwritten. A theme without pictures still applies;
+Hyprland paints the bare desktop in the palette's background instead.
+
+Fetched images are for your own use. The collection mixes freely licensed
 photography with artwork that is not. Point `KROMI_WALLPAPERS_REPO` and
 `KROMI_WALLPAPERS_REF` at another repository laid out as
 `themes/<name>/backgrounds/` to fetch from somewhere else.
 
-## What link edits
+## Config changes and undoing them
 
-`kromi link` — and `kromi setup`, after asking — is the only thing that
-touches a file outside kromi's own directories. This is all of it:
+kromi deliberately separates applying a theme from connecting app configs:
+
+- `kromi set` renders files under `~/.local/state/kromi/current/` and reloads
+  detected apps. It never edits the config of an app you have not connected.
+- `kromi link` makes the one-time config changes that tell apps to use those
+  generated files. `kromi setup` asks before running it.
+- `kromi unlink` removes kromi's lines and restores the settings it backed up.
+
+This separation keeps ordinary theme switching safe for people who manage
+their own dotfiles. Most integrations add an include or import. VS Code, VLC,
+and Firefox are narrow exceptions because they do not provide a suitable
+config include.
+
+### Exact changes
+
+This is everything `kromi link` can change outside kromi's own directories:
 
 | App | File | Change |
 |---|---|---|
@@ -120,40 +149,38 @@ touches a file outside kromi's own directories. This is all of it:
 | VLC | `~/.config/vlc/vlcrc` | the one `qt-dark-palette=` line rewritten in place; the old line is backed up |
 | Firefox | each profile's `chrome/userChrome.css`, `chrome/userContent.css`, `user.js` | two `@import` lines, two symlinks into `chrome/`, two `user_pref` lines |
 
-Lines are prepended so anything you write below them wins; the CSS imports
-are the exception, where last wins. Linking twice adds nothing. `kromi unlink`
-removes exactly these lines and keys, restores the VS Code, VLC and Firefox
-values it backed up, and deletes a file that held nothing but kromi's line.
+Most connections are prepended so settings below them remain in charge. CSS
+imports are the exception because the last matching rule wins. Linking twice
+adds nothing.
 
-After linking, only VS Code, VLC and Firefox's `user.js` are written to again
-on a switch, because they have no include mechanism. The rest re-read kromi's
-rendered files.
+After linking, only VS Code, VLC, and Firefox's `user.js` are written again
+during a switch. They have no include mechanism; the other apps simply read
+kromi's rendered files.
 
-The one thing outside your home directory is optional and separate:
-`kromi firefox-live install` puts a loader beside Firefox's program files so a
-switch recolours open windows, and needs root. Setup asks; it never does it
-unasked. See [App integrations](docs/integrations.md#live-switching).
+`kromi unlink` removes exactly the lines and keys above, restores the VS Code,
+VLC, and Firefox values it backed up, and deletes a file if it held nothing but
+kromi's connection.
 
-## How it works
+### Firefox live switching
 
-`kromi set` renders one file per app under `~/.local/state/kromi/current/`,
-swaps the complete theme into place, and reloads detected apps. It does not
-edit their configs.
+The optional Firefox live loader is the only feature that writes outside your
+home directory. `kromi firefox-live install` puts a loader beside Firefox's
+program files so open windows can follow a theme switch. It usually needs root,
+and a Firefox update may remove it.
 
-`kromi link` makes the small, app-specific config change that points an app at
-those generated files. This separation keeps theme switching safe for people
-who manage dotfiles themselves. VS Code, VLC, and Firefox are the documented
-exceptions because those apps do not provide ordinary config includes.
+Setup offers this option when Firefox is detected; it never installs it without
+asking. See [Firefox live switching](docs/integrations.md#live-switching) for
+details.
 
 ## Customize and extend
 
-- [App integrations](docs/integrations.md) — manual setup, app-specific
-  behaviour, and live Firefox switching.
-- [Extending kromi](docs/extending.md) — add a theme, customize a template,
-  or write a new app definition.
-
 User files under `~/.config/kromi/` shadow shipped files of the same name, so
 customizations do not require changing the checkout.
+
+- [App integrations](docs/integrations.md) — manual setup, app-specific
+  behavior, and Firefox live switching.
+- [Extending kromi](docs/extending.md) — add a theme, customize a template, or
+  write a new app definition.
 
 ## Tests
 
@@ -166,7 +193,5 @@ The suite uses a throwaway XDG root and does not signal your running desktop.
 ## Credit
 
 The palettes and template-and-sed approach come from
-[Omarchy](https://github.com/basecamp/omarchy),
-MIT licensed. kromi extracts that idea into a standalone tool: no distribution,
-no opinions about which bar or launcher you run, and app configs left alone
-unless you ask. See [NOTICE](NOTICE).
+[Omarchy](https://github.com/basecamp/omarchy), MIT licensed. See
+[NOTICE](NOTICE) for details.

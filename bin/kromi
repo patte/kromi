@@ -124,7 +124,7 @@ signal_reload() {
   sleep 0.4
   if ! kill -0 "$pid" 2>/dev/null && ((${#argv[@]} > 0)); then
     setsid "${argv[@]}" >/dev/null 2>&1 &
-    warn "$name crashed on reload; restarted it"
+    warn "$name stopped during reload and was restarted"
   fi
 }
 
@@ -149,12 +149,12 @@ set_json() {
   [[ -e $file ]] || printf '{}\n' >"$file"
 
   if ! command -v jq >/dev/null 2>&1; then
-    warn "jq not found; set \"$key\": $value in $file yourself"
+    warn "jq is required to update $file; set \"$key\": $value yourself"
     return 1
   fi
   if ! jq --arg k "$key" --argjson v "$value" '.[$k] = $v' "$file" >"$file.kromi-tmp" 2>/dev/null; then
     rm -f "$file.kromi-tmp"
-    warn "cannot parse $file; set \"$key\": $value in it yourself"
+    warn "could not parse $file; set \"$key\": $value yourself"
     return 1
   fi
   mv "$file.kromi-tmp" "$file"
@@ -188,7 +188,7 @@ app_run() {
     in_place=0
     detect() { command -v "$APP" >/dev/null 2>&1; }
     reload() { :; }
-    link() { warn "$APP: nothing to link"; }
+    link() { warn "$APP has no automatic config connection"; }
     unlink() { :; }
     # For the apps that show a wallpaper: whether the daemon is up, how to
     # bring it up, and the line that keeps it up. Only setup uses them.
@@ -394,13 +394,39 @@ reload_wallpaper_apps() {
   local app
   for app in $(enabled_apps); do
     [[ $(app_run "$app" _uses_wallpaper) == 1 ]] || continue
-    app_run "$app" reload || warn "$app: reload failed"
+    app_run "$app" reload || warn "$app could not be reloaded"
   done
 }
 
 normalise_name() { printf '%s\n' "$1" | tr '[:upper:] ' '[:lower:]-'; }
 
 title_case() { printf '%s\n' "$1" | sed -E 's/(^|-)([a-z])/\1\u\2/g; s/-/ /g'; }
+
+app_name() {
+  case $1 in
+    btop) printf 'btop\n' ;;
+    vlc) printf 'VLC\n' ;;
+    vscode) printf 'VS Code\n' ;;
+    *) title_case "$1" ;;
+  esac
+}
+
+# Print app names as a compact, readable list without relying on `column` or
+# the terminal to indent wrapped lines for us.
+print_app_list() {
+  local app name line='  ' separator=''
+  for app in "$@"; do
+    name=$(app_name "$app")
+    if (( ${#line} + ${#separator} + ${#name} > 76 )); then
+      printf '%s\n' "$line"
+      line="  $name"
+    else
+      line+="$separator$name"
+    fi
+    separator=', '
+  done
+  [[ $line == '  ' ]] || printf '%s\n' "$line"
+}
 
 # --- commands ---------------------------------------------------------------
 
@@ -443,7 +469,7 @@ render_theme() {
         # A theme shipping its own file wins over the template.
         [[ -e $NEXT/$tpl_name ]] && continue
         tpl=$(find_first templates "$tpl_name.tpl") || {
-          warn "$app: no template $tpl_name.tpl"
+          warn "$app has no template named $tpl_name.tpl"
           continue
         }
         sed -f "$script" "$tpl" >"$NEXT/$tpl_name"
@@ -452,7 +478,7 @@ render_theme() {
 
     rm -f "$script"
   else
-    warn "$name has no colors.toml; nothing generated"
+    warn "$name has no colors.toml; no theme files were generated"
   fi
 
   printf '%s\n' "$name" >"$NEXT/.name"
@@ -474,7 +500,7 @@ cmd_set() {
   # Best effort: a headless run must still succeed.
   local app
   for app in $apps; do
-    app_run "$app" reload || warn "$app: reload failed"
+    app_run "$app" reload || warn "$app could not be reloaded"
   done
 
   printf 'kromi: %s\n' "$(title_case "$(cat "$CURRENT/.name")")"
@@ -503,7 +529,7 @@ cmd_list() {
 }
 
 cmd_current() {
-  [[ -f $CURRENT/.name ]] || die "no theme set"
+  [[ -f $CURRENT/.name ]] || die "no theme is set; run 'kromi set <theme>'"
   cat "$CURRENT/.name"
 }
 
@@ -529,10 +555,10 @@ interactive_roll() {
   trap - INT
 
   if ((stopped)); then
-    printf '\nstopped on %s\n' "$(cat "$CURRENT/.name" 2>/dev/null || echo unknown)"
+    printf '\nStopped on %s.\n' "$(cat "$CURRENT/.name" 2>/dev/null || echo unknown)"
   elif [[ -n $original ]]; then
     cmd_set "$original" >/dev/null
-    printf '\nback to %s — apply any of the above with: kromi set <name>\n' "$original"
+    printf '\nRestored %s. Apply another theme with `kromi set <name>`.\n' "$original"
   fi
 }
 
@@ -559,8 +585,8 @@ interactive_browse() {
   printf '\n'
 
   # r sits with the keys that keep browsing; x is the one that ends it.
-  printf 'n next   p prev   a auto   1-9 secs   r restore   x keep\n'
-  ((auto)) && printf 'auto on, %ss — a stops it\n' "$delay"
+  printf 'n next   p previous   a auto   1-9 speed   r restore   x keep\n'
+  ((auto)) && printf 'Auto: every %ss (press a to stop)\n' "$delay"
   printf '\n'
 
   # Ctrl-C is treated as `x`: quitting abruptly should not undo a theme you
@@ -610,15 +636,15 @@ interactive_browse() {
       p | P) index=$(((index - 1 + count) % count)) ;;
       a | A)
         auto=$((1 - auto))
-        printf '      auto %s\n' "$( ((auto)) && echo "on, ${delay}s" || echo off)"
+        printf '      Auto: %s\n' "$( ((auto)) && echo "every ${delay}s" || echo off)"
         ;;
       [0-9])
         delay=$key
-        printf '      %ss\n' "$delay"
+        printf '      Speed: %ss\n' "$delay"
         ;;
       x | X)
         trap - INT
-        printf '\nkept %s\n' "$applied"
+        printf '\nKeeping %s.\n' "$applied"
         return 0
         ;;
       r | R)
@@ -627,7 +653,7 @@ interactive_browse() {
         if ((home >= 0)); then
           index=$home
         else
-          printf '      nothing to restore\n'
+          printf '      No original theme to restore.\n'
         fi
         ;;
     esac
@@ -645,7 +671,7 @@ cmd_interactive() {
 
   local -a all
   mapfile -t all < <(list_themes)
-  ((${#all[@]})) || die "no themes"
+  ((${#all[@]})) || die "no themes found"
 
   local original
   original=$(cat "$CURRENT/.name" 2>/dev/null || true)
@@ -689,19 +715,19 @@ cmd_wallpaper() {
       theme=$(cat "$CURRENT/.name" 2>/dev/null || true)
       if [[ -n $theme && ! -L $CURRENT/wallpaper ]] && has_wallpaper "$theme"; then
         cmd_set "$theme" >/dev/null
-        printf 'selected %s for %s\n' "$(basename "$(readlink "$CURRENT/wallpaper")")" "$theme"
+        printf 'Selected %s for %s.\n' "$(basename "$(readlink "$CURRENT/wallpaper")")" "$theme"
       fi
       return
       ;;
   esac
 
-  [[ -f $CURRENT/.name ]] || die "no theme set"
+  [[ -f $CURRENT/.name ]] || die "no theme is set; run 'kromi set <theme>'"
   local theme
   theme=$(cat "$CURRENT/.name")
 
   case $action in
     show)
-      [[ -L $CURRENT/wallpaper ]] || die "no wallpaper for $theme"
+      [[ -L $CURRENT/wallpaper ]] || die "no wallpaper is selected for $theme"
       readlink "$CURRENT/wallpaper"
       ;;
     apply)
@@ -713,7 +739,7 @@ cmd_wallpaper() {
     next)
       local -a all
       mapfile -t all < <(list_wallpapers "$theme" "$CURRENT")
-      ((${#all[@]})) || die "no wallpapers for $theme"
+      ((${#all[@]})) || die "no wallpapers found for $theme"
 
       local current index=-1 i
       current=$(readlink "$CURRENT/wallpaper" 2>/dev/null || true)
@@ -756,7 +782,7 @@ cmd_link() {
   [[ -f $CURRENT/.name ]] || render_theme "$DEFAULT_THEME"
   local app
   for app in "${apps[@]}"; do
-    app_run "$app" link && printf 'linked %s\n' "$app" || warn "$app: link failed"
+    app_run "$app" link && printf 'Linked %s.\n' "$app" || warn "$app could not be linked"
   done
 }
 
@@ -765,7 +791,7 @@ cmd_unlink() {
   [[ ${#apps[@]} -gt 0 ]] || mapfile -t apps < <(enabled_apps)
   local app
   for app in "${apps[@]}"; do
-    app_run "$app" unlink && printf 'unlinked %s\n' "$app" || warn "$app: unlink failed"
+    app_run "$app" unlink && printf 'Unlinked %s.\n' "$app" || warn "$app could not be unlinked"
   done
 }
 
@@ -800,7 +826,7 @@ setup_wallpaper_daemons() {
   local app hint
   for app in "$@"; do
     app_run "$app" running && continue
-    printf '%s is not running, so nothing is showing it.\n' "$app"
+    printf '%s is not running, so the wallpaper is not visible.\n' "$(app_name "$app")"
     if ask "Start $app now?" y; then
       app_run "$app" start
       # Give it a moment, then look: a start that did not take is a bare
@@ -812,23 +838,20 @@ setup_wallpaper_daemons() {
       done
       if app_run "$app" running; then
         app_run "$app" reload || true
-        printf 'started %s\n' "$app"
+        printf 'Started %s.\n' "$(app_name "$app")"
       else
-        printf '%s did not start; try running it by hand to see why\n' "$app"
+        printf '%s did not start. Run it by hand to see its error.\n' "$(app_name "$app")"
       fi
     fi
     hint=$(app_run "$app" _autostart_hint)
-    [[ -n $hint ]] && printf 'To have it start at login: %s — see docs/integrations.md#%s\n' "$hint" "$app"
+    [[ -n $hint ]] && printf 'Start it at login with `%s`. See docs/integrations.md#%s.\n' "$hint" "$app"
   done
 }
 
 # The whole first run in one place, every question before anything changes
-# on screen: the apps found and whether to link them, then wallpapers, then
-# one apply of the theme — which is the single reload — then the daemon if
-# it is not up, and what is linked now. At a terminal with no theme named,
-# it ends by offering the browse, which with the wallpapers just fetched is
-# the best way to choose. Every step is one of the plain commands, so
-# nothing here is the only way.
+# on screen: connect apps, choose Firefox's optional live integration, fetch
+# wallpapers, then apply once. At a terminal with no theme named, finish by
+# offering the browser. Every step is also available as a plain command.
 cmd_setup() {
   local theme=${1:-} named=0
   [[ -n $theme ]] && named=1
@@ -843,25 +866,33 @@ cmd_setup() {
   local -a apps
   mapfile -t apps < <(enabled_apps)
   if ((${#apps[@]} == 0)); then
-    printf 'No supported apps detected; nothing to link.\n'
+    printf 'No supported apps found. kromi will still apply the theme.\n'
   else
-    printf 'Detected: %s\n' "${apps[*]}"
-    # Two kinds of change hide behind one question, so say which is which.
+    printf 'Found %d supported app' "${#apps[@]}"
+    ((${#apps[@]} == 1)) || printf 's'
+    printf ':\n'
+    print_app_list "${apps[@]}"
+    printf '\nConnecting them requires a one-time change to each app config.\n'
+
+    # Direct settings updates deserve an explicit callout before the question.
     local -a in_place=()
     local app
     for app in "${apps[@]}"; do
       [[ $(app_run "$app" _in_place) == 1 ]] && in_place+=("$app")
     done
-    if ((${#in_place[@]})); then
-      printf 'Linking adds one include line to each config; %s: a few settings edited in place.\n' \
-        "$(IFS=,; printf '%s' "${in_place[*]}" | sed 's/,/, /g')"
+    if ((${#apps[@]} > ${#in_place[@]})); then
+      printf 'Apps that support it get a small include, import, or pointer to kromi.\n'
     fi
-    printf 'kromi can add one line to each of their configs so they read the theme — the README\n'
-    printf 'section "What link edits" lists every change. kromi unlink takes them out again.\n'
-    if ask "Edit those configs?" y; then
+    if ((${#in_place[@]})); then
+      printf 'These apps need a few theme settings updated directly:\n'
+      print_app_list "${in_place[@]}"
+    fi
+    printf '\nEvery change is listed in README.md under "Config changes and undoing them."\n'
+    printf '`kromi unlink` removes the connections and restores replaced settings.\n\n'
+    if ask "Connect these apps to kromi now?" y; then
       cmd_link "${apps[@]}"
     else
-      printf 'Not linked. Wire them by hand, or run kromi link later.\n'
+      printf 'Skipped. Run `kromi link` later, or connect them by hand.\n'
     fi
   fi
 
@@ -872,12 +903,14 @@ cmd_setup() {
   if [[ " ${apps[*]} " == *" firefox "* ]]; then
     if "$KROMI_BIN" firefox-live installed 2>/dev/null; then
       live=1
-      printf 'Firefox: the live loader is installed, so open windows follow a switch.\n'
+      printf '\nFirefox live switching is already installed.\n'
+      printf 'Open Firefox windows will follow theme changes immediately.\n'
     else
-      printf 'Firefox reads its stylesheets once, at startup, so a linked profile shows a switch\n'
-      printf 'at its next start. A loader beside its program files recolours open windows\n'
-      printf 'instead. Installing it needs root, and a Firefox update removes it again.\n'
-      if ask "Install the Firefox live loader, with sudo?" n; then
+      printf '\nFirefox can switch in two ways:\n'
+      printf '  Profile connection: no root; changes appear after Firefox restarts.\n'
+      printf '  Live loader: needs root; open windows update immediately.\n'
+      printf 'A Firefox update may remove the live loader, requiring a reinstall.\n\n'
+      if ask "Install Firefox live switching now?" n; then
         # The two do not compose: a sheet a profile imports is loaded first
         # and pins the palette Firefox opened with.
         app_run firefox unlink 2>/dev/null || true
@@ -887,7 +920,7 @@ cmd_setup() {
         if (cmd_install); then
           live=1
         else
-          warn "the loader did not install; firefox stays as it was"
+          warn "Firefox live switching was not installed; the profile connection remains available"
         fi
       fi
     fi
@@ -901,20 +934,23 @@ cmd_setup() {
   done
 
   if ((${#installed[@]} == 0)); then
-    printf 'Wallpaper skipped: %s is not installed\n' "${showers[*]:-no wallpaper app}"
+    printf '\nNo wallpaper app found; skipping wallpapers.\n'
   elif ! has_wallpaper "$theme"; then
-    printf 'No wallpaper for %s yet.\n' "$theme"
+    printf '\nNo wallpaper is available for %s yet.\n' "$(title_case "$theme")"
     # The collection first, because that is the answer that makes every later
     # `kromi set` complete; the one theme's set is the fallback for someone
     # who would rather not take 80 MB of other people's artwork on trust.
-    if ask "Fetch wallpapers for every theme from Omarchy? (about 80 MB; needs git; the pictures are theirs to license, yours to look at)" y; then
+    printf "Omarchy's collection is about 80 MB and requires git. Its images have\n"
+    printf 'mixed licenses; download them only for personal use.\n\n'
+    if ask "Download wallpapers for every theme?" y; then
       load_fetcher
       wallpaper_fetch
-    elif ask "Just $theme's, then?" y; then
+    elif ask "Download wallpapers for $(title_case "$theme") only?" y; then
       load_fetcher
       wallpaper_fetch "$theme"
     else
-      printf 'Skipped. Later: kromi wallpaper fetch [theme], or drop pictures in %s/wallpapers/%s/\n' \
+      printf 'Skipped. Run `kromi wallpaper fetch [theme]` later, or add images to\n'
+      printf '  %s/wallpapers/%s/\n' \
         "$(tilde "$KROMI_CONFIG")" "$theme"
     fi
   fi
@@ -931,8 +967,8 @@ cmd_setup() {
     elif has_wallpaper "$theme"; then
       :
     else
-      printf 'No wallpaper for %s. Drop pictures in %s/wallpapers/%s/\n' \
-        "$theme" "$(tilde "$KROMI_CONFIG")" "$theme"
+      printf 'No wallpaper is available for %s. Add images to\n' "$(title_case "$theme")"
+      printf '  %s/wallpapers/%s/\n' "$(tilde "$KROMI_CONFIG")" "$theme"
     fi
   fi
 
@@ -943,51 +979,52 @@ cmd_setup() {
   for app in "${apps[@]}"; do
     if app_run "$app" linked 2>/dev/null; then linked+=("$app"); else unlinked+=("$app"); fi
   done
-  printf '\n'
-  ((${#linked[@]})) && printf 'Linked: %s\n' "${linked[*]}"
+  printf '\nSetup complete.\n'
+  ((${#linked[@]})) && printf 'Connected: %s\n' "${linked[*]}"
   if ((live)); then
     # Themed, by the other arrangement: not a link that failed.
     local -a rest=()
     for app in "${unlinked[@]}"; do [[ $app == firefox ]] || rest+=("$app"); done
     unlinked=("${rest[@]}")
-    printf 'Firefox: live loader (restart it once)\n'
+    printf 'Firefox: live switching (restart Firefox once)\n'
   fi
-  ((${#unlinked[@]})) && printf 'Not linked: %s\n' "${unlinked[*]}"
+  ((${#unlinked[@]})) && printf 'Not connected: %s\n' "${unlinked[*]}"
 
   # Nobody named this theme; it is the one to start from, not the one chosen.
-  if ((!named)) && [[ -t 0 ]] && ask "Browse the themes now? (n/p to step, x keeps the one showing)" y; then
+  if ((!named)) && [[ -t 0 ]] && ask "Browse themes now? (n/p changes theme; x keeps it)" y; then
     printf '\n'
     cmd_interactive
     return
   fi
-  printf 'Switch any time with kromi set <theme>, or browse with kromi interactive.\n'
+  printf 'Next: `kromi set <theme>` or `kromi interactive`\n'
 }
 
 cmd_help() {
   cat <<'USAGE'
-kromi — apply one colour palette across a desktop's apps.
+kromi — apply one color palette across your desktop apps.
 
-  kromi setup [theme]    first run: link detected apps, fetch wallpapers,
-                         apply the theme, browse — asking before each step
-  kromi set <theme>      render the palette and reload running apps
-  kromi list             list themes, marking the current one
-  kromi interactive      list themes, then browse them: n/p step, a auto,
-    (i, demo) [seconds]  r restore, x keep; with seconds, starts rolling
-  kromi current          print the current theme
-  kromi wallpaper next   cycle to this theme's next wallpaper
-  kromi wallpaper apply  put the current one back on a running daemon
-  kromi wallpaper fetch  download wallpaper sets (needs git; see README)
+  kromi setup [theme]    guided first run: connect apps, get wallpapers,
+                         apply a theme, and optionally browse themes
+  kromi set <theme>      apply a theme and reload running apps
+  kromi list             list themes and mark the current one
+  kromi interactive      browse themes: n/p step, a auto, r restore, x keep
+    (i, demo) [seconds]  give seconds to start browsing automatically
+  kromi current          show the current theme
+  kromi wallpaper next   use this theme's next wallpaper
+  kromi wallpaper apply  reapply the wallpaper to a running wallpaper app
+  kromi wallpaper fetch  download wallpaper sets (needs git; see README.md)
     [theme...]
-  kromi wallpaper list   what is available to fetch, and how many
-  kromi apps             list app definitions: * detected, and linked or not
-  kromi link [app...]    point app configs at kromi's output (opt-in)
-  kromi unlink [app...]  undo link
-  kromi firefox-live     recolour an open Firefox on every set; needs root,
+  kromi wallpaper list   list downloadable wallpaper sets and image counts
+  kromi apps             show apps: * means detected; "linked" means connected
+  kromi link [app...]    connect app configs to kromi's generated files
+  kromi unlink [app...]  remove those connections and restore settings
+  kromi firefox-live     update open Firefox windows on every switch; needs root
     [install|uninstall]  see 'kromi firefox-live help'
 
-`set` only ever writes inside kromi's own state directory. `link` (and
-`setup`, which asks first) is what touches your app configs; skip it if you
-manage those yourself, and add the import lines from docs/integrations.md.
+`set` never edits the config of an app you have not linked. After linking,
+VS Code, VLC, and Firefox need limited settings updates during later switches.
+`setup` asks before linking anything. For manual connections, see
+docs/integrations.md.
 USAGE
 }
 

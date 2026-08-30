@@ -49,7 +49,7 @@ wallpaper_fetch() {
   trap fetch_cleanup EXIT
   local tmp=$FETCH_WORKDIR
 
-  printf 'fetching from %s at %s\n' "$WALLPAPERS_REPO" "$WALLPAPERS_REF"
+  printf 'Downloading wallpapers from %s (%s)...\n' "$WALLPAPERS_REPO" "$WALLPAPERS_REF"
   clone_index "$tmp"
 
   # Cone mode takes directories, so name each one rather than globbing.
@@ -87,7 +87,7 @@ wallpaper_fetch() {
     rmdir "$dest_dir" 2>/dev/null || true
   done
 
-  printf '%d copied, %d already there, %d skipped (none upstream)\n' \
+  printf 'Wallpapers: %d downloaded, %d already present, %d unavailable.\n' \
     "$copied" "$kept" "$missing"
-  printf 'in %s\n' "$WALLPAPERS_DEST"
+  printf 'Saved in %s.\n' "$WALLPAPERS_DEST"
 }

@@ -102,7 +102,7 @@ apply() {
   # Not when the live loader answered: it has already been told, and telling
   # someone to restart a browser that just changed colour is nonsense.
   if ((linked && !told)) && pgrep -x firefox >/dev/null 2>&1; then
-    warn "firefox is open; it reads its stylesheets and prefs at startup, so restart it to see this"
+    warn "Firefox is open; restart it to use the new theme"
   fi
   return 0
 }
@@ -140,8 +140,8 @@ link() {
   local profile name found=0
 
   if live_installed; then
-    warn "the firefox-live loader is installed; linking would shadow it"
-    warn "leave firefox to the loader, or 'kromi firefox-live uninstall' first"
+    warn "Firefox live switching is installed; a profile connection would override it"
+    warn "keep live switching, or run 'kromi firefox-live uninstall' before linking"
     return 1
   fi
 
@@ -173,7 +173,7 @@ link() {
   done < <(profiles)
 
   ((found)) || {
-    warn "no firefox profiles found; start firefox once, then link it"
+    warn "no Firefox profiles found; start Firefox once, then link it"
     return 1
   }
   apply

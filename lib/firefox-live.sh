@@ -25,28 +25,32 @@ usage() {
   cat <<'USAGE'
 kromi firefox-live [install|uninstall|status]
 
-  install     put the loader in Firefox's install directory (needs root)
-  uninstall   take it back out
-  status      say whether it is there, whether it is current, who is listening
-  installed   say nothing, and exit 0 if the loader is in — what
-              `kromi link firefox` asks before it refuses to shadow one
-  poke        tell every listening firefox to look now — kromi does this
-              itself on every `set`, so it is here to be run by hand
+Update open Firefox windows whenever the kromi theme changes.
 
-Then restart Firefox once. After that every `kromi set` recolours the windows
-already open, without a restart and without kromi writing to your profile.
+  install     install the live loader beside Firefox (usually needs root)
+  uninstall   remove the live loader
+  status      show the installation and connection status
 
-Firefox is told rather than left to watch: it listens on a unix socket under
-$XDG_RUNTIME_DIR/kromi, and kromi opens a connection to it. That needs socat,
-a netcat with -U, or python3. Without one of those the loader falls back to
-looking at the file, which works just as well and costs a wakeup a second.
+Firefox has two mutually exclusive integrations:
 
-`kromi link firefox` is the other way to do this: no root, nothing outside
-your home, and a switch shows up the next time Firefox starts. Use one or the
-other — a sheet imported by userChrome.css is loaded first and wins, which
-pins the palette Firefox opened with. Run `kromi unlink firefox` before this.
+  kromi link firefox          no root; changes appear after Firefox restarts
+  kromi firefox-live install  needs root; open windows update immediately
 
-  KROMI_FIREFOX_APP   Firefox's install directory, if it is somewhere unusual
+Run `kromi unlink firefox` before installing live switching. After installing,
+restart Firefox once. A Firefox update may remove the loader; reinstall it if
+that happens.
+
+Live notifications use socat, nc with Unix-socket support, or python3. Without
+one of them, Firefox watches the generated file instead.
+
+Advanced commands:
+
+  installed   exit successfully when the loader is installed; print nothing
+  poke        notify every listening Firefox process now
+
+Environment:
+
+  KROMI_FIREFOX_APP   Firefox's install directory when auto-detection fails
 USAGE
 }
 
@@ -72,7 +76,7 @@ as_root() {
   if [[ $EUID -eq 0 || -w $dir ]]; then
     "$@"
   else
-    command -v sudo >/dev/null 2>&1 || die "need root to write in $dir, and no sudo"
+    command -v sudo >/dev/null 2>&1 || die "root access is required to write in $dir, but sudo is unavailable"
     sudo "$@"
   fi
 }
@@ -164,7 +168,7 @@ cmd_poke() {
       continue
     }
     rc=$?
-    ((rc == 2)) && die "nothing here can open a unix socket — install socat"
+    ((rc == 2)) && die "cannot notify Firefox; install socat, nc with Unix-socket support, or python3"
     # Nobody behind it: a firefox that went away without tidying up.
     rm -f "$sock"
   done < <(listeners)
@@ -173,41 +177,41 @@ cmd_poke() {
 
 cmd_status() {
   local dir
-  dir=$(app_dir) || die "no firefox install found; set KROMI_FIREFOX_APP"
-  say "firefox   $dir"
+  dir=$(app_dir) || die "Firefox was not found; set KROMI_FIREFOX_APP to its install directory"
+  say "Firefox: $dir"
 
   if installed; then
     if cmp -s "$SOURCE" "$dir/$CFG"; then
-      say "loader    installed"
+      say "Loader: installed"
     else
-      say "loader    installed, and out of date — run install again"
+      say "Loader: installed but outdated; run 'kromi firefox-live install'"
     fi
   else
-    say "loader    not installed"
+    say "Loader: not installed"
   fi
 
   local count
   count=$(listeners | grep -c . || true)
   if ((count > 0)); then
-    say "listening $count firefox process(es), in $KNOCKS"
+    say "Listening: $count Firefox process(es) in $KNOCKS"
   else
-    say "listening nothing — start firefox, or it is watching the file instead"
+    say "Listening: no processes; Firefox may be closed or using file watching"
   fi
-  can_knock || say "knocking  no socat, nc -U or python3 — nothing can tell it"
+  can_knock || say "Notifier: unavailable; install socat, nc with Unix-socket support, or python3"
 
   local linked
   linked=$(linked_profiles)
-  [[ -n $linked ]] && say "linked    $(printf '%s\n' "$linked" | wc -l) profile(s) still import kromi.css — see below"
+  [[ -n $linked ]] && say "Profiles: $(printf '%s\n' "$linked" | wc -l) still connected; run 'kromi unlink firefox'"
   return 0
 }
 
 cmd_install() {
   local dir conflict
-  dir=$(app_dir) || die "no firefox install found; set KROMI_FIREFOX_APP"
+  dir=$(app_dir) || die "Firefox was not found; set KROMI_FIREFOX_APP to its install directory"
   [[ -f $SOURCE ]] || die "missing $SOURCE"
 
   if conflict=$(conflicting_bootstrap "$dir"); then
-    die "$conflict already sets general.config.filename; remove it first, or merge by hand"
+    die "$conflict already configures Firefox AutoConfig; remove or merge it first"
   fi
 
   as_root "$dir" install -m 0644 "$SOURCE" "$dir/$CFG"
@@ -220,40 +224,39 @@ pref("general.config.obscure_value", 0);
 pref("general.config.sandbox_enabled", false);
 EOF
 
-  say "installed in $dir"
+  say "Firefox live switching installed in $dir."
 
   local linked
   linked=$(linked_profiles)
   if [[ -n $linked ]]; then
     say ""
-    say "run 'kromi unlink firefox' first: a sheet imported by userChrome.css is"
-    say "loaded before this one and wins, which pins the palette Firefox started"
-    say "with. These profiles still import it:"
+    say "These Firefox profiles are still connected through userChrome.css:"
     printf '  %s\n' $linked
+    say "Run 'kromi unlink firefox' or live switching will be overridden."
   fi
 
   can_knock || {
     say ""
-    say "no socat, nc -U or python3 here, so nothing can knock: the loader will"
-    say "fall back to looking at the file a couple of times a second instead."
+    say "No supported notifier was found, so Firefox will watch the generated"
+    say "file instead. Install socat for immediate, event-driven updates."
   }
 
   say ""
-  say "restart firefox once. after that, every 'kromi set' lands in the windows"
-  say "already open. a firefox update replaces $dir, so run this again after one."
+  say "Restart Firefox once. Future theme changes will update open windows."
+  say "If a Firefox update removes the loader, run this install command again."
 }
 
 cmd_uninstall() {
   local dir
-  dir=$(app_dir) || die "no firefox install found; set KROMI_FIREFOX_APP"
+  dir=$(app_dir) || die "Firefox was not found; set KROMI_FIREFOX_APP to its install directory"
   if [[ ! -e $dir/$CFG && ! -e $dir/$BOOTSTRAP ]]; then
-    say "nothing installed in $dir"
+    say "Firefox live switching is not installed in $dir."
     return 0
   fi
   as_root "$dir" rm -f "$dir/$CFG" "$dir/$BOOTSTRAP"
-  say "removed from $dir"
-  say "the palette stays until firefox restarts, and the sheets are still rendered"
-  say "— 'kromi link firefox' is the way to keep them without this."
+  say "Firefox live switching removed from $dir."
+  say "Restart Firefox to clear the current palette."
+  say "Run 'kromi link firefox' to use restart-based profile theming instead."
 }
 
 firefox_live_main() {

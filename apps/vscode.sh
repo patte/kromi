@@ -53,7 +53,7 @@ apply() {
           else . end
       ' "$settings" >"$settings.kromi-tmp" 2>/dev/null; then
     rm -f "$settings.kromi-tmp"
-    warn "cannot parse $settings; leaving it alone"
+    warn "could not parse $settings; it was left unchanged"
     return 1
   fi
   mv "$settings.kromi-tmp" "$settings"

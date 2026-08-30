@@ -19,7 +19,7 @@ reload() { hyprctl reload >/dev/null 2>&1 || true; }
 # kromi's line as a whole config, and that is a session with no keybinds.
 link() {
   if [[ ! -f $config ]]; then
-    warn "no $config to link into"
+    warn "cannot link Hyprland because $config does not exist"
     return 1
   fi
   prepend_line "$config" "$include"

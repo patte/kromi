@@ -332,7 +332,7 @@ check $? "vscode link keeps colour keys the user already had"
 mkdir -p "$SANDBOX/broken/Code/User"
 printf '{ "editor.fontSize": 13, \n' >"$SANDBOX/broken/Code/User/settings.json"
 XDG_CONFIG_HOME="$SANDBOX/broken" XDG_STATE_HOME="$SANDBOX/broken-state" "$KROMI" link vscode >"$SANDBOX/broken.out" 2>&1
-grep -q 'link failed' "$SANDBOX/broken.out" &&
+grep -q 'could not be linked' "$SANDBOX/broken.out" &&
   ! XDG_CONFIG_HOME="$SANDBOX/broken" XDG_STATE_HOME="$SANDBOX/broken-state" KROMI_APPS=vscode "$KROMI" apps | grep -q linked
 check $? "a vscode link that could not write is not reported as linked"
 
@@ -474,9 +474,9 @@ grep -q '"general.config.filename", "kromi-live.cfg"' "$FFAPP/defaults/pref/krom
 check $? "the bootstrap names the loader"
 
 KROMI_PATH=$ROOT KROMI_FIREFOX_APP=$FFAPP "$KROMI" firefox-live status >"$SANDBOX/st.txt" 2>&1
-grep -q '^loader    installed$' "$SANDBOX/st.txt"
+grep -q '^Loader: installed$' "$SANDBOX/st.txt"
 check $? "status reports it in place"
-grep -q '^loader    installed$' "$SANDBOX/st.txt" || sed 's/^/       /' "$SANDBOX/st.txt"
+grep -q '^Loader: installed$' "$SANDBOX/st.txt" || sed 's/^/       /' "$SANDBOX/st.txt"
 
 # There is one general.config.filename, and it may be somebody else's.
 printf 'pref("general.config.filename", "theirs.cfg");\n' >"$FFAPP/defaults/pref/theirs.js"
@@ -679,11 +679,11 @@ sys.exit(0)
 
   KROMI_APPS=dummy "$KROMI" set nord >/dev/null
   KROMI_APPS=dummy pty x "$KROMI" i 5 >"$SANDBOX/i-auto.out" 2>&1 || true
-  grep -q 'auto on, 5s' "$SANDBOX/i-auto.out"
+  grep -q 'Auto: every 5s' "$SANDBOX/i-auto.out"
   check $? "interactive with an interval starts rolling"
 
   KROMI_APPS=dummy pty x "$KROMI" i >"$SANDBOX/i-manual.out" 2>&1 || true
-  ! grep -q 'auto on' "$SANDBOX/i-manual.out"
+  ! grep -q 'Auto: every' "$SANDBOX/i-manual.out"
   check $? "interactive without one waits for a key"
 
   # It opens on the whole shelf: `kromi list`, star and all, before any key.
@@ -705,7 +705,7 @@ sys.exit(0)
   [[ $(showing_of "$SANDBOX/i-restore.out") == nord ]]
   check $? "r steps back to the theme you came with"
 
-  grep -q '^kept nord' "$SANDBOX/i-restore.out"
+  tr -d '\r' <"$SANDBOX/i-restore.out" | grep -q '^Keeping nord\.$'
   check $? "r keeps browsing, so x is still what ends it"
 
   [[ $(KROMI_APPS=dummy "$KROMI" current) == nord ]]
@@ -714,7 +714,7 @@ sys.exit(0)
   # x stops on whatever is showing rather than on the one you came with.
   KROMI_APPS=dummy pty 'nx' "$KROMI" i >"$SANDBOX/i-keep.out" 2>&1 || true
   showing=$(showing_of "$SANDBOX/i-keep.out")
-  grep -q "^kept $showing" "$SANDBOX/i-keep.out"
+  tr -d '\r' <"$SANDBOX/i-keep.out" | grep -q "^Keeping $showing\\.$"
   check $? "x keeps the theme it was showing"
 
   [[ -n $showing && $showing != nord && $(KROMI_APPS=dummy "$KROMI" current) == "$showing" ]]
@@ -725,7 +725,7 @@ sys.exit(0)
   # it.
   KROMI_APPS=dummy "$KROMI" set nord >/dev/null
   KROMI_APPS=dummy pty 'n\x03' "$KROMI" i >"$SANDBOX/i-int.out" 2>&1 || true
-  grep -q '^kept ' "$SANDBOX/i-int.out"
+  grep -q '^Keeping ' "$SANDBOX/i-int.out"
   check $? "ctrl-c stops the browse"
 
   showing=$(showing_of "$SANDBOX/i-int.out")
@@ -824,8 +824,8 @@ DEST="$XDG_CONFIG_HOME/kromi/wallpapers"
 
 echo "setup"
 
-# Piped in, setup takes its defaults: link yes, fetch no. hyprpaper is not
-# among the apps here, so the wallpaper step has to say why it did nothing.
+# Piped in, setup takes its defaults. Hyprpaper is not among the apps here, so
+# the wallpaper step has to say why it did nothing.
 KROMI_APPS="hyprland waybar" "$KROMI" setup nord >"$SANDBOX/setup.out" 2>&1 </dev/null
 check $? "setup runs through without a terminal"
 
@@ -833,14 +833,15 @@ grep -q 'kromi/current' "$XDG_CONFIG_HOME/hypr/hyprland.lua" &&
   grep -q 'kromi/current' "$XDG_CONFIG_HOME/waybar/style.css"
 check $? "setup links the detected apps by default"
 
-grep -qx 'Wallpaper skipped: hyprpaper is not installed' "$SANDBOX/setup.out"
+grep -qx 'No wallpaper app found; skipping wallpapers.' "$SANDBOX/setup.out"
 check $? "setup says so when nothing is there to show a wallpaper"
 
-! grep -q 'edited in place' "$SANDBOX/setup.out"
+! grep -q 'updated directly' "$SANDBOX/setup.out"
 check $? "setup does not mention in-place edits when no such app is detected"
 
 KROMI_APPS="hyprland vscode vlc" "$KROMI" setup nord >"$SANDBOX/setup-inplace.out" 2>&1 </dev/null
-grep -q 'vscode, vlc: a few settings edited in place' "$SANDBOX/setup-inplace.out"
+grep -q '^  VS Code, VLC$' "$SANDBOX/setup-inplace.out" &&
+  grep -q 'need a few theme settings updated directly' "$SANDBOX/setup-inplace.out"
 check $? "setup says which apps get settings edited in place"
 KROMI_APPS="hyprland vscode vlc" "$KROMI" unlink >/dev/null
 KROMI_APPS="hyprland waybar" "$KROMI" unlink >/dev/null
@@ -852,12 +853,12 @@ check $? "setup names the wallpaper when the theme has one"
 
 # A wallpaper with no daemon up is a wallpaper nobody sees: setup offers to
 # start it, and starts it by default, and says how to keep it started.
-grep -q '^hyprpaper is not running' "$SANDBOX/setup.out" && [[ -f $XDG_STATE_HOME/started-hyprpaper ]]
+grep -q '^Hyprpaper is not running' "$SANDBOX/setup.out" && [[ -f $XDG_STATE_HOME/started-hyprpaper ]]
 check $? "setup starts the wallpaper daemon when it is not running"
 
 # The fixture's start leaves running false, which is a start that did not
 # take — and setup has to say that rather than claim a wallpaper is up.
-grep -q '^hyprpaper did not start' "$SANDBOX/setup.out"
+grep -q '^Hyprpaper did not start' "$SANDBOX/setup.out"
 check $? "setup notices when the daemon does not come up"
 
 grep -q 'exec-once = hyprpaper.*docs/integrations.md#hyprpaper' "$SANDBOX/setup.out"
@@ -866,7 +867,7 @@ check $? "setup says how to start the daemon at login, and where to read more"
 # A start that takes is reported as one.
 echo 'start() { touch "$XDG_STATE_HOME/running-$APP"; }' >>"$FIXTURE/apps/hyprpaper.sh"
 KROMI_APPS=hyprpaper "$KROMI" setup nord >"$SANDBOX/setup-started.out" 2>&1 </dev/null
-grep -q '^started hyprpaper$' "$SANDBOX/setup-started.out"
+grep -q '^Started Hyprpaper\.$' "$SANDBOX/setup-started.out"
 check $? "setup reports a daemon it started"
 rm -f "$XDG_STATE_HOME/running-hyprpaper"
 
@@ -879,7 +880,7 @@ rm -f "$XDG_STATE_HOME/running-hyprpaper" "$XDG_STATE_HOME/started-hyprpaper"
 # And with none, it offers the whole collection, which is the default answer:
 # every theme's pictures land, and the one on screen goes up.
 KROMI_APPS=hyprpaper "$KROMI" setup gruvbox >"$SANDBOX/setup.out" 2>&1 </dev/null
-grep -q '^No wallpaper for gruvbox' "$SANDBOX/setup.out" && grep -q "^Wallpaper: $DEST/gruvbox/c.jpg" "$SANDBOX/setup.out"
+grep -q '^No wallpaper is available for Gruvbox yet\.' "$SANDBOX/setup.out" && grep -q "^Wallpaper: $DEST/gruvbox/c.jpg" "$SANDBOX/setup.out"
 check $? "setup fetches wallpapers by default and shows the theme's"
 
 [[ -f $DEST/nord/a.jpg && -f $DEST/gruvbox/c.jpg ]]
@@ -893,13 +894,13 @@ KROMI_APPS=hyprpaper "$KROMI" unlink >/dev/null
 # The closing lines say what is linked now, read back from the configs — so
 # an app whose link failed is named, not buried under 'Done'.
 KROMI_APPS="hyprland ghostty" "$KROMI" setup gruvbox >"$SANDBOX/setup-sum.out" 2>&1 </dev/null
-grep -q '^Linked: hyprland ghostty$' "$SANDBOX/setup-sum.out" && ! grep -q '^Not linked' "$SANDBOX/setup-sum.out"
+grep -q '^Connected: hyprland ghostty$' "$SANDBOX/setup-sum.out" && ! grep -q '^Not connected' "$SANDBOX/setup-sum.out"
 check $? "setup ends by listing what is linked"
 KROMI_APPS="hyprland ghostty" "$KROMI" unlink >/dev/null
 
 mv "$XDG_CONFIG_HOME/hypr/hyprland.lua" "$XDG_CONFIG_HOME/hypr/hyprland.lua.away"
 KROMI_APPS="hyprland ghostty" "$KROMI" setup gruvbox >"$SANDBOX/setup-fail.out" 2>&1 </dev/null
-grep -q '^Not linked: hyprland$' "$SANDBOX/setup-fail.out" && grep -q '^Linked: ghostty$' "$SANDBOX/setup-fail.out"
+grep -q '^Not connected: hyprland$' "$SANDBOX/setup-fail.out" && grep -q '^Connected: ghostty$' "$SANDBOX/setup-fail.out"
 check $? "setup names an app whose link failed"
 mv "$XDG_CONFIG_HOME/hypr/hyprland.lua.away" "$XDG_CONFIG_HOME/hypr/hyprland.lua"
 KROMI_APPS="hyprland ghostty" "$KROMI" unlink >/dev/null
@@ -917,7 +918,7 @@ check $? "link on a fresh install renders the default theme first"
 if command -v python3 >/dev/null 2>&1; then
   # A no at the prompt has to be a no: nothing linked, and told so.
   KROMI_APPS=hyprland pty 'n\n' "$KROMI" setup nord >"$SANDBOX/setup-no.out" 2>&1 || true
-  ! grep -q 'kromi/current' "$XDG_CONFIG_HOME/hypr/hyprland.lua" && grep -q 'Not linked' "$SANDBOX/setup-no.out"
+  ! grep -q 'kromi/current' "$XDG_CONFIG_HOME/hypr/hyprland.lua" && grep -q 'Not connected' "$SANDBOX/setup-no.out"
   check $? "setup at a terminal takes no for an answer"
 
   KROMI_APPS=hyprland pty '\n' "$KROMI" setup nord >"$SANDBOX/setup-yes.out" 2>&1 || true
@@ -928,17 +929,17 @@ if command -v python3 >/dev/null 2>&1; then
   # The screen changes once, at the end: the apply comes after every
   # question, not before the first.
   tr -d '\r' <"$SANDBOX/setup-yes.out" >"$SANDBOX/setup-yes.txt"
-  [[ $(grep -n '^Detected:' "$SANDBOX/setup-yes.txt" | cut -d: -f1) -lt $(grep -n '^kromi: Nord' "$SANDBOX/setup-yes.txt" | cut -d: -f1) ]]
+  [[ $(grep -n '^Found 1 supported app:' "$SANDBOX/setup-yes.txt" | cut -d: -f1) -lt $(grep -n '^kromi: Nord' "$SANDBOX/setup-yes.txt" | cut -d: -f1) ]]
   check $? "setup applies the theme after the questions, not before"
 
   # With no theme named, a terminal is offered the browse; x keeps whatever
   # is showing. The keys: link default, browse y, then x in the browse.
   KROMI_APPS=hyprland pty '\ny\nx' "$KROMI" setup >"$SANDBOX/setup-browse.out" 2>&1 || true
-  grep -q '^kept ' "$SANDBOX/setup-browse.out"
+  grep -q '^Keeping ' "$SANDBOX/setup-browse.out"
   check $? "setup with no theme named offers the browse, and the browse runs"
 
   KROMI_APPS=hyprland pty '\nn\n' "$KROMI" setup >"$SANDBOX/setup-nobrowse.out" 2>&1 || true
-  ! grep -q '^kept ' "$SANDBOX/setup-nobrowse.out" && grep -q 'kromi interactive' "$SANDBOX/setup-nobrowse.out"
+  ! grep -q '^Keeping ' "$SANDBOX/setup-nobrowse.out" && grep -q 'kromi interactive' "$SANDBOX/setup-nobrowse.out"
   check $? "no to the browse ends with the hint instead"
 
   # Firefox's loader is the one question that reaches outside home. Keys:
@@ -951,12 +952,12 @@ if command -v python3 >/dev/null 2>&1; then
   ! grep -q 'kromi.css' "$profile/chrome/userChrome.css" 2>/dev/null
   check $? "installing the loader unlinks the profiles first"
 
-  grep -q '^Firefox: live loader' "$SANDBOX/setup-live.out" && ! grep -q '^Not linked' "$SANDBOX/setup-live.out"
+  grep -q '^Firefox: live switching' "$SANDBOX/setup-live.out" && ! grep -q '^Not connected' "$SANDBOX/setup-live.out"
   check $? "the summary shows firefox as themed by the loader, not as unlinked"
 
   # With the loader in, setup says so and does not ask again.
   KROMI_APPS="hyprland firefox" pty '\n' "$KROMI" setup nord >"$SANDBOX/setup-live2.out" 2>&1 || true
-  grep -q 'live loader is installed' "$SANDBOX/setup-live2.out" && ! grep -q 'with sudo' "$SANDBOX/setup-live2.out"
+  grep -q 'live switching is already installed' "$SANDBOX/setup-live2.out" && ! grep -q 'Install Firefox live switching now' "$SANDBOX/setup-live2.out"
   check $? "setup does not offer a loader that is already in"
   "$KROMI" firefox-live uninstall >/dev/null 2>&1
 
@@ -984,7 +985,7 @@ fetch nord gruvbox >"$SANDBOX/fetch.out" 2>&1
 [[ -f $DEST/nord/a.jpg && -f $DEST/nord/b.jpg && -f $DEST/gruvbox/c.jpg ]]
 check $? "wallpapers are fetched into the user's wallpapers dir"
 
-[[ $("$KROMI" wallpaper) == "$DEST/gruvbox/c.jpg" ]] && grep -q '^selected c.jpg for gruvbox$' "$SANDBOX/fetch.out"
+[[ $("$KROMI" wallpaper) == "$DEST/gruvbox/c.jpg" ]] && grep -q '^Selected c.jpg for gruvbox\.$' "$SANDBOX/fetch.out"
 check $? "a fetch for the theme on screen selects its wallpaper at once"
 
 # At a terminal, no to the collection is followed by the offer of the one
@@ -1003,7 +1004,7 @@ if command -v python3 >/dev/null 2>&1; then
   # And no to both leaves nothing fetched, with the hint.
   rm -rf "$DEST"
   KROMI_APPS=hyprpaper KROMI_PATH=$ROOT pty '\nn\nn\n' "$KROMI" setup nord >"$SANDBOX/setup-nofetch.out" 2>&1 || true
-  [[ ! -e $DEST ]] && grep -q 'Skipped. Later: kromi wallpaper fetch' "$SANDBOX/setup-nofetch.out"
+  [[ ! -e $DEST ]] && grep -q 'Skipped. Run `kromi wallpaper fetch \[theme\]` later' "$SANDBOX/setup-nofetch.out"
   check $? "no to both fetches nothing and says how to later"
   KROMI_APPS=hyprpaper "$KROMI" unlink >/dev/null
   fetch nord gruvbox >/dev/null 2>&1
@@ -1045,12 +1046,12 @@ else
   [[ $(readlink "$INSTALL_HOME/.local/bin/kromi") == "$INSTALL_HOME/.local/share/kromi/bin/kromi" ]]
   check $? "install.sh clones and links kromi into ~/.local/bin"
 
-  grep -q '^next: kromi setup$' "$SANDBOX/install.out" && ! grep -q 'not on your PATH' "$SANDBOX/install.out"
+  grep -q '^Next: kromi setup$' "$SANDBOX/install.out" && ! grep -q 'not on your PATH' "$SANDBOX/install.out"
   check $? "install.sh points at setup rather than running it"
 
   HOME=$INSTALL_HOME KROMI_REPO=$ROOT PATH="/usr/bin:/bin" \
     bash "$ROOT/install.sh" >"$SANDBOX/install2.out" 2>&1
-  grep -q '^updated ' "$SANDBOX/install2.out" && grep -q 'not on your PATH' "$SANDBOX/install2.out" && grep -q "^next: $INSTALL_HOME/.local/bin/kromi setup$" "$SANDBOX/install2.out"
+  grep -q '^Updated kromi in ' "$SANDBOX/install2.out" && grep -q 'not on your PATH' "$SANDBOX/install2.out" && grep -q "^Next: $INSTALL_HOME/.local/bin/kromi setup$" "$SANDBOX/install2.out"
   check $? "a second run updates in place and notices a PATH without ~/.local/bin"
 
   # A kromi of somebody else's on PATH is not ours to replace.

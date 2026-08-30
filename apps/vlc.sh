@@ -49,7 +49,7 @@ apply() {
   value=$(value_for_mode) || return 0
   write_key "$value"
   if pgrep -x vlc >/dev/null 2>&1; then
-    warn "vlc is open; it reads vlcrc only at startup, so restart it to see this"
+    warn "VLC is open; restart it to use the new palette setting"
   fi
 }
 
