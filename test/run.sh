@@ -688,46 +688,53 @@ else
   echo "  skip interactive key handling (no python3 for a pty)"
 fi
 
-echo "background selection"
+echo "wallpaper selection"
 
-BG="$XDG_CONFIG_HOME/kromi/backgrounds"
+BG="$XDG_CONFIG_HOME/kromi/wallpapers"
 mkdir -p "$BG/nord"
 echo x >"$BG/nord/1-first.jpg"
 echo y >"$BG/nord/2-second.png"
 echo z >"$BG/nord/3-third.jpg"
 
 KROMI_APPS=dummy "$KROMI" set nord >/dev/null
-[[ $("$KROMI" background) == "$BG/nord/1-first.jpg" ]]
-check $? "set points the background link at the first image"
+[[ $("$KROMI" wallpaper) == "$BG/nord/1-first.jpg" ]]
+check $? "set points the wallpaper link at the first image"
 
 HP="$XDG_STATE_HOME/kromi/current/hyprpaper.conf"
 
-grep -qxF "    path = $XDG_STATE_HOME/kromi/current/background" "$HP"
+grep -qxF "    path = $XDG_STATE_HOME/kromi/current/wallpaper" "$HP"
 check $? "the wallpaper config names the link, not the image behind it"
 
 grep -qxF 'splash = false' "$HP"
 check $? "hyprpaper's own splash is turned off"
 
-[[ $(KROMI_APPS=dummy "$KROMI" background next) == "2-second.png" ]]
-check $? "background next advances"
+[[ $(KROMI_APPS=dummy "$KROMI" wallpaper next) == "2-second.png" ]]
+check $? "wallpaper next advances"
 
-KROMI_APPS=dummy "$KROMI" background next >/dev/null
-[[ $(KROMI_APPS=dummy "$KROMI" background next) == "1-first.jpg" ]]
-check $? "background next wraps around"
+KROMI_APPS=dummy "$KROMI" wallpaper next >/dev/null
+[[ $(KROMI_APPS=dummy "$KROMI" wallpaper next) == "1-first.jpg" ]]
+check $? "wallpaper next wraps around"
+
+# The old name still reads: pictures fetched before the rename stay found.
+mkdir -p "$XDG_CONFIG_HOME/kromi/backgrounds/kanagawa"
+echo k >"$XDG_CONFIG_HOME/kromi/backgrounds/kanagawa/old.jpg"
+KROMI_APPS=dummy "$KROMI" set kanagawa >/dev/null
+[[ $("$KROMI" wallpaper) == "$XDG_CONFIG_HOME/kromi/backgrounds/kanagawa/old.jpg" ]]
+check $? "a backgrounds/ directory is still read"
 
 # A theme nobody has pictures for must not break a switch.
 KROMI_APPS=dummy "$KROMI" set gruvbox >/dev/null
-check $? "set works for a theme with no backgrounds"
+check $? "set works for a theme with no wallpapers"
 
-[[ ! -L $XDG_STATE_HOME/kromi/current/background ]]
-check $? "no background link when there are no images"
+[[ ! -L $XDG_STATE_HOME/kromi/current/wallpaper ]]
+check $? "no wallpaper link when there are no images"
 
 # The sourced file has to exist even then: hyprpaper shrugs off a path it
 # cannot resolve, but a source line with nothing behind it stops it starting.
 [[ -f $HP ]]
 check $? "the sourced file is written for a theme with no wallpaper"
 
-echo "backgrounds"
+echo "wallpaper fetch"
 
 # Point the fetcher at a local repo, so this stays offline.
 SOURCE="$SANDBOX/source"
@@ -746,26 +753,30 @@ echo "upstream-c" >"$SOURCE/themes/gruvbox/backgrounds/c.jpg"
   git tag v-test
 ) >/dev/null 2>&1
 
-export KROMI_BACKGROUNDS_REPO="$SOURCE"
-export KROMI_BACKGROUNDS_REF="v-test"
-BACKGROUNDS="$ROOT/bin/kromi-backgrounds"
-DEST="$XDG_CONFIG_HOME/kromi/backgrounds"
+export KROMI_WALLPAPERS_REPO="$SOURCE"
+export KROMI_WALLPAPERS_REF="v-test"
+fetch() { KROMI_PATH=$ROOT "$KROMI" wallpaper fetch "$@"; }
+DEST="$XDG_CONFIG_HOME/kromi/wallpapers"
 
-"$BACKGROUNDS" nord gruvbox >/dev/null 2>&1
+fetch nord gruvbox >/dev/null 2>&1
 [[ -f $DEST/nord/a.jpg && -f $DEST/nord/b.jpg && -f $DEST/gruvbox/c.jpg ]]
-check $? "backgrounds are fetched into the user's backgrounds dir"
+check $? "wallpapers are fetched into the user's wallpapers dir"
+
+KROMI_PATH=$ROOT "$KROMI" wallpaper list >"$SANDBOX/wl.txt" 2>&1
+grep -q '^nord *2$' "$SANDBOX/wl.txt" && grep -q '^gruvbox *1$' "$SANDBOX/wl.txt"
+check $? "wallpaper list counts what is upstream"
 
 # The whole point: a picture you put there yourself must survive a re-run.
 echo "mine" >"$DEST/nord/a.jpg"
 echo "also-mine" >"$DEST/nord/keep.jpg"
-"$BACKGROUNDS" nord >/dev/null 2>&1
+fetch nord >/dev/null 2>&1
 [[ $(cat "$DEST/nord/a.jpg") == "mine" ]]
 check $? "an existing file is never overwritten"
 
 [[ -f $DEST/keep.jpg || -f $DEST/nord/keep.jpg ]]
 check $? "a file with no upstream counterpart is left alone"
 
-"$BACKGROUNDS" no-such-theme >/dev/null 2>&1
+fetch no-such-theme >/dev/null 2>&1
 check $? "a theme with nothing upstream is not an error"
 
 [[ ! -d $DEST/no-such-theme ]]

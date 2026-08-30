@@ -16,5 +16,5 @@ splash = false
 # not resolve the path, sets no wallpaper, and carries on running.
 wallpaper {
     monitor =
-    path = {{ background_image }}
+    path = {{ wallpaper }}
 }

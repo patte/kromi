@@ -1,10 +1,10 @@
 templates="hyprpaper.conf"
-uses_background=1
+uses_wallpaper=1
 
 config="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/hyprpaper.conf"
 include="source = $(tilde "$(theme_file hyprpaper.conf)")"
 
-link_path="$(theme_file background)"
+link_path="$(theme_file wallpaper)"
 
 detect() { command -v hyprpaper >/dev/null 2>&1; }
 
