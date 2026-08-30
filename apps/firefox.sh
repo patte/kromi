@@ -232,8 +232,5 @@ unlink() {
     found=1
   fi
 
-  ((found)) || {
-    warn "Firefox was not linked"
-    return 1
-  }
+  ((found)) || return 2
 }

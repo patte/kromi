@@ -14,6 +14,7 @@ link() {
 }
 
 unlink() {
+  linked || return 2
   drop_line "$style" "$palette_import"
   drop_line "$style" "$theme_import"
 }

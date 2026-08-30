@@ -25,4 +25,3 @@ link() {
   prepend_line "$config" "$include"
 }
 
-unlink() { drop_line "$config" "$include"; }

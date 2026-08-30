@@ -76,7 +76,7 @@ link() {
 linked() { [[ -f $backup ]]; }
 
 unlink() {
-  [[ -f $backup ]] || return 0
+  linked || return 2
   if [[ -f $vlcrc ]]; then
     if [[ -s $backup ]]; then
       local original

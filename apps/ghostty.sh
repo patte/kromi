@@ -7,4 +7,3 @@ include="config-file = ?\"$(tilde "$(theme_file ghostty.conf)")\""
 reload() { signal_reload ghostty; }
 
 link() { prepend_line "$config" "$include"; }
-unlink() { drop_line "$config" "$include"; }

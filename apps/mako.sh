@@ -8,4 +8,3 @@ reload() { makoctl reload 2>/dev/null || true; }
 
 # Prepended: in mako the last matching option wins, so anything below stays in charge.
 link() { prepend_line "$config" "$include"; }
-unlink() { drop_line "$config" "$include"; }

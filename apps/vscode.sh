@@ -91,6 +91,7 @@ link() {
 linked() { [[ -f $backup ]]; }
 
 unlink() {
+  linked || return 2
   [[ -f $settings ]] || return 0
   command -v jq >/dev/null 2>&1 || return 0
 

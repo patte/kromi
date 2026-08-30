@@ -48,4 +48,3 @@ reload() {
 
 # Prepended, so a colorscheme set further down init.lua still wins.
 link() { prepend_line "$config" "$include"; }
-unlink() { drop_line "$config" "$include"; }

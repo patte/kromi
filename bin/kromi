@@ -189,7 +189,13 @@ app_run() {
     detect() { command -v "$APP" >/dev/null 2>&1; }
     reload() { :; }
     link() { warn "$APP has no automatic config connection"; }
-    unlink() { :; }
+    # Returns 2 when there was nothing to undo, so the caller can say so
+    # rather than report an unlink that did not happen. An app with its own
+    # unlink keeps that contract with `linked || return 2` up front.
+    unlink() {
+      linked || return 2
+      drop_line "$config" "$include"
+    }
     # For the apps that show a wallpaper: whether the daemon is up, how to
     # bring it up, and the line that keeps it up. Only setup uses them.
     running() { pgrep -x "$APP" >/dev/null 2>&1; }
@@ -789,9 +795,15 @@ cmd_link() {
 cmd_unlink() {
   local apps=("$@")
   [[ ${#apps[@]} -gt 0 ]] || mapfile -t apps < <(enabled_apps)
-  local app
+  local app rc
   for app in "${apps[@]}"; do
-    app_run "$app" unlink && printf 'Unlinked %s.\n' "$app" || warn "$app could not be unlinked"
+    rc=0
+    app_run "$app" unlink || rc=$?
+    case $rc in
+      0) printf 'Unlinked %s.\n' "$app" ;;
+      2) warn "$app was not linked" ;;
+      *) warn "$app could not be unlinked" ;;
+    esac
   done
 }
 

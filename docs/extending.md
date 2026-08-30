@@ -121,8 +121,11 @@ detect() { command -v foo >/dev/null; }   # the default if omitted
 reload() { pkill -HUP -x foo || true; }
 
 link()   { prepend_line "$config" "$include"; }
-unlink() { drop_line "$config" "$include"; }
 ```
+
+The default `unlink` removes `$include` from `$config` again, and returns 2
+when the app was not linked so `kromi unlink` can say so. An integration that
+defines its own `unlink` keeps that contract with `linked || return 2`.
 
 The template belongs at `templates/foo.conf.tpl`, or at
 `~/.config/kromi/templates/foo.conf.tpl` for a personal integration. It can use

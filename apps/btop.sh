@@ -13,6 +13,7 @@ link() {
 }
 
 unlink() {
+  linked || return 2
   rm -f "$config_dir/themes/kromi.theme"
   set_kv "$config_dir/btop.conf" color_theme '"Default"'
 }
