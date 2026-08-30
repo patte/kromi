@@ -870,18 +870,22 @@ cmd_setup() {
   else
     printf 'Found %d supported app' "${#apps[@]}"
     ((${#apps[@]} == 1)) || printf 's'
-    printf ':\n'
-    print_app_list "${apps[@]}"
-    printf '\nConnecting them requires a one-time change to each app config.\n'
+    printf '.\n\nConnecting these apps requires small config changes.\n'
 
-    # Direct settings updates deserve an explicit callout before the question.
-    local -a in_place=()
+    # Show the two connection models separately, and only when an app in the
+    # detected set uses that model.
+    local -a separate=() in_place=()
     local app
     for app in "${apps[@]}"; do
-      [[ $(app_run "$app" _in_place) == 1 ]] && in_place+=("$app")
+      if [[ $(app_run "$app" _in_place) == 1 ]]; then
+        in_place+=("$app")
+      else
+        separate+=("$app")
+      fi
     done
-    if ((${#apps[@]} > ${#in_place[@]})); then
-      printf 'Apps that support it get a small include, import, or pointer to kromi.\n'
+    if ((${#separate[@]})); then
+      printf 'These apps can load separate theme files through an include, import, or pointer:\n'
+      print_app_list "${separate[@]}"
     fi
     if ((${#in_place[@]})); then
       printf 'These apps need a few theme settings updated directly:\n'

@@ -839,6 +839,10 @@ check $? "setup says so when nothing is there to show a wallpaper"
 ! grep -q 'updated directly' "$SANDBOX/setup.out"
 check $? "setup does not mention in-place edits when no such app is detected"
 
+grep -q 'can load separate theme files' "$SANDBOX/setup.out" &&
+  grep -q '^  Hyprland, Waybar$' "$SANDBOX/setup.out"
+check $? "setup groups apps that can load separate theme files"
+
 KROMI_APPS="hyprland vscode vlc" "$KROMI" setup nord >"$SANDBOX/setup-inplace.out" 2>&1 </dev/null
 grep -q '^  VS Code, VLC$' "$SANDBOX/setup-inplace.out" &&
   grep -q 'need a few theme settings updated directly' "$SANDBOX/setup-inplace.out"
@@ -929,7 +933,7 @@ if command -v python3 >/dev/null 2>&1; then
   # The screen changes once, at the end: the apply comes after every
   # question, not before the first.
   tr -d '\r' <"$SANDBOX/setup-yes.out" >"$SANDBOX/setup-yes.txt"
-  [[ $(grep -n '^Found 1 supported app:' "$SANDBOX/setup-yes.txt" | cut -d: -f1) -lt $(grep -n '^kromi: Nord' "$SANDBOX/setup-yes.txt" | cut -d: -f1) ]]
+  [[ $(grep -n '^Found 1 supported app\.$' "$SANDBOX/setup-yes.txt" | cut -d: -f1) -lt $(grep -n '^kromi: Nord' "$SANDBOX/setup-yes.txt" | cut -d: -f1) ]]
   check $? "setup applies the theme after the questions, not before"
 
   # With no theme named, a terminal is offered the browse; x keeps whatever
@@ -1062,7 +1066,7 @@ else
     grep -q "^Using local checkout $ROOT\\.$" "$SANDBOX/install-local.out"
   check $? "running install.sh from a checkout installs that working tree"
 
-  grep -q 'Connecting makes one small config change per app' "$INSTALL_HOME/.local/bin/kromi"
+  grep -q 'Connecting these apps requires small config changes' "$INSTALL_HOME/.local/bin/kromi"
   check $? "the local install exposes working-tree changes immediately"
 
   # Reading the same script over stdin remains clone mode, as the README's
