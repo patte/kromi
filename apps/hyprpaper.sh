@@ -8,6 +8,12 @@ link_path="$(theme_file wallpaper)"
 
 detect() { command -v hyprpaper >/dev/null 2>&1; }
 
+# For setup, which offers to start it: a linked hyprpaper that is not running
+# shows nothing, and a wallpaper that never appears looks like a bug.
+running() { pgrep -x hyprpaper >/dev/null 2>&1; }
+start() { setsid hyprpaper >/dev/null 2>&1 & }
+autostart_hint='exec-once = hyprpaper in hyprland.conf, or hl.exec_cmd("hyprpaper") in hyprland.lua'
+
 # Config for a cold start, IPC for a warm one: hyprpaper reads its config once,
 # at startup, so a daemon already running has to be told. That split is why a
 # login needs nothing of kromi's — hyprpaper puts the wallpaper back itself.

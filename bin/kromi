@@ -190,6 +190,11 @@ app_run() {
     reload() { :; }
     link() { warn "$APP: nothing to link"; }
     unlink() { :; }
+    # For the apps that show a wallpaper: whether the daemon is up, how to
+    # bring it up, and the line that keeps it up. Only setup uses them.
+    running() { pgrep -x "$APP" >/dev/null 2>&1; }
+    start() { setsid "$APP" >/dev/null 2>&1 & }
+    autostart_hint=""
     # Whether link's change is in place right now — read from the config, not
     # from anything kromi remembers, so a line someone took out shows as gone.
     # The default covers every app that is one include line in one file.
@@ -200,6 +205,7 @@ app_run() {
     _templates() { printf '%s\n' $templates; }
     _uses_wallpaper() { printf '%s\n' "$uses_wallpaper"; }
     _in_place() { printf '%s\n' "$in_place"; }
+    _autostart_hint() { printf '%s\n' "$autostart_hint"; }
     # shellcheck disable=SC1090
     source "$file"
     "$fn" "$@"
@@ -754,6 +760,24 @@ wallpaper_apps() {
   return 0
 }
 
+# A wallpaper with nothing running to show it is the one way setup could end
+# on "Wallpaper: ..." and a bare desktop. Offer to start the daemon, and say
+# what keeps it started — that line is the user's config to write, not ours.
+setup_wallpaper_daemons() {
+  local app hint
+  for app in "$@"; do
+    app_run "$app" running && continue
+    printf '%s is not running, so nothing is showing it.\n' "$app"
+    if ask "Start $app now?" y; then
+      app_run "$app" start
+      sleep 0.5
+      app_run "$app" reload || true
+    fi
+    hint=$(app_run "$app" _autostart_hint)
+    [[ -n $hint ]] && printf 'To have it start at login: %s\n' "$hint"
+  done
+}
+
 # The whole first run in one place: a theme, the apps found, the question of
 # whether to link them, and a wallpaper if something is there to show one.
 # Every step is one of the plain commands, so nothing here is the only way.
@@ -796,13 +820,17 @@ cmd_setup() {
     printf 'Wallpaper skipped: %s is not installed\n' "${showers[*]:-no wallpaper app}"
   elif has_wallpaper "$theme"; then
     printf 'Wallpaper: %s\n' "$(readlink "$CURRENT/wallpaper")"
+    setup_wallpaper_daemons "${installed[@]}"
   else
     printf 'No wallpaper for %s yet.\n' "$theme"
     if ask "Fetch wallpaper sets from Omarchy? (needs git; the pictures are theirs to license, yours to look at)" n; then
       cmd_wallpaper fetch
       # Now that there is one to point at, and so the daemon shows it.
       cmd_set "$theme" >/dev/null
-      [[ -L $CURRENT/wallpaper ]] && printf 'Wallpaper: %s\n' "$(readlink "$CURRENT/wallpaper")"
+      if [[ -L $CURRENT/wallpaper ]]; then
+        printf 'Wallpaper: %s\n' "$(readlink "$CURRENT/wallpaper")"
+        setup_wallpaper_daemons "${installed[@]}"
+      fi
     else
       printf 'Skipped. Later: kromi wallpaper fetch, or drop pictures in %s/wallpapers/%s/\n' \
         "$(tilde "$KROMI_CONFIG")" "$theme"

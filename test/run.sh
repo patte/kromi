@@ -59,6 +59,9 @@ for app in "$ROOT"/apps/*.sh; do
     {
       cat "$app"
       echo 'reload() { :; }'
+      # Nor start a daemon: setup offers to, and the offer is what is tested.
+      echo 'running() { [[ -f $XDG_STATE_HOME/running-$APP ]]; }'
+      echo 'start() { touch "$XDG_STATE_HOME/started-$APP"; }'
     } >"$FIXTURE/apps/$name"
   fi
 done
@@ -802,6 +805,20 @@ KROMI_APPS="hyprland waybar" "$KROMI" unlink >/dev/null
 KROMI_APPS=hyprpaper "$KROMI" setup nord >"$SANDBOX/setup.out" 2>&1 </dev/null
 grep -q "^Wallpaper: $BG/nord/" "$SANDBOX/setup.out"
 check $? "setup names the wallpaper when the theme has one"
+
+# A wallpaper with no daemon up is a wallpaper nobody sees: setup offers to
+# start it, and starts it by default, and says how to keep it started.
+grep -q '^hyprpaper is not running' "$SANDBOX/setup.out" && [[ -f $XDG_STATE_HOME/started-hyprpaper ]]
+check $? "setup starts the wallpaper daemon when it is not running"
+
+grep -q 'exec-once = hyprpaper' "$SANDBOX/setup.out"
+check $? "setup says how to start the daemon at login"
+
+touch "$XDG_STATE_HOME/running-hyprpaper"
+KROMI_APPS=hyprpaper "$KROMI" setup nord >"$SANDBOX/setup-running.out" 2>&1 </dev/null
+! grep -q 'not running' "$SANDBOX/setup-running.out"
+check $? "setup leaves a running daemon alone"
+rm -f "$XDG_STATE_HOME/running-hyprpaper" "$XDG_STATE_HOME/started-hyprpaper"
 
 # And with none, it offers to fetch, and does not without a yes.
 KROMI_APPS=hyprpaper "$KROMI" setup gruvbox >"$SANDBOX/setup.out" 2>&1 </dev/null

@@ -73,8 +73,16 @@ your own config wins.
 
 Hyprpaper reads its config at startup, so the generated `hyprpaper.conf`
 points at `~/.local/state/kromi/current/wallpaper`, a link kromi keeps aimed
-at the current picture; a login needs nothing of kromi's. While Hyprpaper is
-running, switches and `kromi wallpaper next` reach it over IPC.
+at the current picture; a login needs nothing of kromi's beyond Hyprland
+starting the daemon:
+
+```text
+exec-once = hyprpaper
+```
+
+or `hl.exec_cmd("hyprpaper")` in a Lua config. `kromi setup` offers to start
+it when it is not running, and prints that line. While Hyprpaper is running,
+switches and `kromi wallpaper next` reach it over IPC.
 `kromi wallpaper apply` reapplies the current image to a running daemon,
 including in a manually wired setup.
 
