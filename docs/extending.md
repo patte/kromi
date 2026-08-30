@@ -1,16 +1,18 @@
 # Extending kromi
 
-Everything kromi ships — themes, templates, app definitions — can be shadowed
-by a file of the same name under `~/.config/kromi/`, so nothing here requires
-changing the checkout.
+Everything kromi ships—themes, templates, and app definitions—can be
+overridden by a matching item under `~/.config/kromi/`. You can therefore
+customize or extend kromi without changing its checkout.
 
 ## Add a theme
 
-A theme is a directory containing `colors.toml`. Put custom themes under
-`~/.config/kromi/themes/<name>/`; a user theme with the same name as a shipped
-one replaces it.
+A theme is a directory containing `colors.toml`. Put custom themes in
+`~/.config/kromi/themes/<name>/`. A user theme with the same name as a shipped
+theme takes precedence.
 
-The required palette contains 22 values:
+### Required colors
+
+A palette requires 22 values: six named roles and the 16 terminal colors.
 
 ```toml
 accent = "#7aa2f7"
@@ -24,8 +26,10 @@ color0 = "#32344a"
 # ... through color15
 ```
 
-Shipped themes also define some surfaces and text roles that the 16 terminal
-slots cannot always express well:
+### Optional roles
+
+Shipped themes also define surface and text roles that the 16 terminal colors
+cannot always express well:
 
 ```toml
 selection = "#292e42"
@@ -40,30 +44,36 @@ orange = "#eb927b"
 brown = "#75493d"
 ```
 
-Every additional value is optional and falls back to its nearest palette slot,
-such as `muted` to `color8` and `lighter_background` to `color0`. A theme with
-only the required values still renders every template. Explicit roles avoid
-poor fallbacks in palettes where, for example, a terminal slot is both a
-surface and the proposed dim-text color.
+Every role in this second block is optional. Missing roles fall back to the
+nearest palette color—for example, `muted` falls back to `color8`, while
+`lighter_background` falls back to `color0`. A theme containing only the 22
+required values still renders every template.
 
-The names `red`, `green`, `yellow`, `blue`, `magenta`, `cyan` and their
-`bright_` variants are aliases for `color1` through `color14`. The numbered
-slots remain authoritative.
+Explicit roles are useful when a fallback would give one color conflicting
+jobs. A terminal color might otherwise act as both a surface and dim text,
+making one of those uses difficult to read.
+
+The names `red`, `green`, `yellow`, `blue`, `magenta`, and `cyan`, together
+with their `bright_` variants, are aliases for `color1` through `color14`.
+The numbered values remain authoritative.
+
+### Wallpapers
 
 A theme may ship a `wallpapers/` directory (or `backgrounds/`, as Omarchy's
-themes do); pictures under `~/.config/kromi/wallpapers/<name>/` come first.
+themes do). Images under `~/.config/kromi/wallpapers/<name>/` take precedence
+over images shipped with the theme.
 
 ### Override a generated file
 
-A theme can ship a completed app file instead of using its template. For
-example, placing `waybar.css` beside `colors.toml` uses that file verbatim for
-the theme.
+A theme can provide a complete generated app file instead of using its
+template. For example, place `waybar.css` beside `colors.toml` to use that file
+verbatim for the theme.
 
 ## Customize templates
 
-Templates are plain text files with `{{ key }}` substitutions. Project
-templates live under `templates/`; override one by placing a file of the same
-name under `~/.config/kromi/templates/`.
+Templates are plain text files containing `{{ key }}` substitutions. Shipped
+templates live under `templates/`. Override one by placing a file with the
+same name under `~/.config/kromi/templates/`.
 
 Every palette value is available in three forms:
 
@@ -82,17 +92,21 @@ kromi also derives:
 | `{{ dim_text }}` | a legible, recessed text color for the palette |
 | `{{ wallpaper }}` | the absolute path of the current wallpaper link |
 
-`dim_text` is selected independently for each palette. kromi chooses the
-dimmest of `dark_foreground`, `muted`, and `color8` that still stands apart
-from the background, or the most distinct candidate if none clears its
-threshold. Use it for comments, line numbers, and placeholders. Use `muted`
-for borders and separators.
+`dim_text` is selected independently for each palette. kromi considers
+`dark_foreground`, `muted`, and `color8`, choosing the dimmest candidate that
+still stands apart from the background. If none meets the contrast threshold,
+it chooses the candidate that differs most from the background.
+
+Use `dim_text` for comments, line numbers, and placeholders. Use `muted` for
+borders and separators.
 
 ## Add an app
 
-An app integration is a shell file in `apps/`. Put personal integrations under
-`~/.config/kromi/apps/`; user files shadow shipped definitions with the same
-name.
+An app integration is a shell file in `apps/`. Put personal integrations in
+`~/.config/kromi/apps/`. A user definition with the same name as a shipped one
+takes precedence.
+
+### Minimal definition
 
 A minimal definition declares the templates it needs, where the app config
 lives, and how to reload and connect it:
@@ -110,15 +124,21 @@ link()   { prepend_line "$config" "$include"; }
 unlink() { drop_line "$config" "$include"; }
 ```
 
-`kromi apps` also reports whether each app is linked, by calling `linked`.
-The default checks that `$include` is a line of `$config`, which is right for
-a definition shaped like the one above; anything else — a symlink, a backup
-file, several imports — defines its own. Set `in_place=1` when `link` edits
-settings rather than adding an include, so `kromi setup` can say so before it
-asks.
+The template belongs at `templates/foo.conf.tpl`, or at
+`~/.config/kromi/templates/foo.conf.tpl` for a personal integration. It can use
+the substitutions described under [Customize templates](#customize-templates).
 
-Its template belongs at `templates/foo.conf.tpl`, or at
-`~/.config/kromi/templates/foo.conf.tpl` for a personal integration.
+### Link status
+
+`kromi apps` calls `linked` to report whether each app is connected. The
+default implementation checks whether `$include` appears as a line in
+`$config`, which is correct for the minimal definition above.
+
+An integration that uses another connection mechanism—such as a symlink, a
+backup file, or several imports—must define its own `linked` function.
+
+Set `in_place=1` when `link` edits settings instead of adding an include. This
+allows `kromi setup` to disclose the direct edit before asking for permission.
 
 ### Available helpers
 
@@ -135,30 +155,34 @@ Its template belongs at `templates/foo.conf.tpl`, or at
 | `drop_json <file> <key>` | remove one JSON key with `jq` |
 | `signal_reload <process> [signal]` | signal a process and restart it if the reload kills it |
 
-And overrides, each with a default: `detect`, `reload`, `link`, `unlink`,
-`linked`.
+The functions `detect`, `reload`, `link`, `unlink`, and `linked` all have
+defaults and can be overridden by an app definition.
+
+### Wallpaper integrations
 
 Set `uses_wallpaper=1` when the integration shows the current wallpaper; this
-makes `kromi wallpaper apply` and `next` call its `reload` function, and lets
-`kromi setup` know whether a wallpaper is worth offering.
+makes `kromi wallpaper apply` and `kromi wallpaper next` call its `reload`
+function. It also tells `kromi setup` whether offering wallpapers is useful.
+
+### Detection and rendering
 
 Detection controls which installed apps are linked and reloaded automatically.
-It does not control rendering: kromi renders output for every known app so a
-config never points at a missing file merely because detection failed during a
-switch.
+It does not control rendering. kromi renders output for every known app so a
+config never points at a missing file merely because detection failed during
+a switch.
 
-Users can override detection completely in `~/.config/kromi/config`:
+Override detection completely in `~/.config/kromi/config` when needed:
 
 ```sh
 KROMI_APPS="waybar mako foo"
 ```
 
-### Test the integration
+### Test an integration
 
 ```sh
 ./test/run.sh
 ```
 
-Tests use a temporary XDG environment and avoid signaling the running desktop.
-The Neovim reload tests start their own headless instances on sockets inside
-that environment.
+The test suite uses a temporary XDG environment and does not signal your
+running desktop. Neovim reload tests start separate headless instances on
+sockets inside that environment.
