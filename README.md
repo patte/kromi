@@ -42,11 +42,18 @@ mkdir -p ~/.local/bin && ln -s ~/.local/share/kromi/bin/kromi ~/.local/bin/kromi
 kromi uninstall
 ```
 
-This unlinks every connected app, removes the Firefox live loader if it is
-installed, and deletes kromi's state, the command, and the clone the installer
-made. It lists all of that and asks first; `-y` answers yes. Your own files in
-`~/.config/kromi` are kept unless you say otherwise, and a checkout linked from
-elsewhere with `./install.sh` is left in place.
+Uninstall lists everything it will remove and asks for confirmation. It:
+
+- unlinks every connected app;
+- removes Firefox live switching if it is installed;
+- deletes kromi's generated state and installed command;
+- deletes the clone made by the installer, but leaves a checkout linked from
+  elsewhere with `./install.sh` in place;
+- keeps your themes, templates, and wallpapers under `~/.config/kromi` by
+  default.
+
+Pass `-y` to skip the confirmation. Without it, kromi separately offers to
+delete your files under `~/.config/kromi`.
 
 ## Quick start
 
