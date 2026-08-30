@@ -922,6 +922,29 @@ if command -v python3 >/dev/null 2>&1; then
   grep -q 'kromi/current' "$XDG_CONFIG_HOME/hypr/hyprland.lua"
   check $? "an empty answer takes the default, which links"
   KROMI_APPS=hyprland "$KROMI" unlink >/dev/null
+
+  # The screen changes once, at the end: the apply comes after every
+  # question, not before the first.
+  tr -d '\r' <"$SANDBOX/setup-yes.out" >"$SANDBOX/setup-yes.txt"
+  [[ $(grep -n '^Detected:' "$SANDBOX/setup-yes.txt" | cut -d: -f1) -lt $(grep -n '^kromi: Nord' "$SANDBOX/setup-yes.txt" | cut -d: -f1) ]]
+  check $? "setup applies the theme after the questions, not before"
+
+  # With no theme named, a terminal is offered the browse; x keeps whatever
+  # is showing. The keys: link default, browse y, then x in the browse.
+  KROMI_APPS=hyprland pty '\ny\nx' "$KROMI" setup >"$SANDBOX/setup-browse.out" 2>&1 || true
+  grep -q '^kept ' "$SANDBOX/setup-browse.out"
+  check $? "setup with no theme named offers the browse, and the browse runs"
+
+  KROMI_APPS=hyprland pty '\nn\n' "$KROMI" setup >"$SANDBOX/setup-nobrowse.out" 2>&1 || true
+  ! grep -q '^kept ' "$SANDBOX/setup-nobrowse.out" && grep -q 'kromi interactive' "$SANDBOX/setup-nobrowse.out"
+  check $? "no to the browse ends with the hint instead"
+
+  # A theme named on the command line is a choice already made: no browse.
+  KROMI_APPS=hyprland pty '\n' "$KROMI" setup nord >"$SANDBOX/setup-named.out" 2>&1 || true
+  ! grep -q 'Browse the themes' "$SANDBOX/setup-named.out"
+  check $? "setup with a theme named does not offer the browse"
+  KROMI_APPS=hyprland "$KROMI" unlink >/dev/null
+  KROMI_APPS=dummy "$KROMI" set gruvbox >/dev/null
 fi
 
 echo "wallpaper fetch"

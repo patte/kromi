@@ -56,10 +56,11 @@ mkdir -p ~/.local/bin && ln -s ~/.local/share/kromi/bin/kromi ~/.local/bin/kromi
 kromi setup
 ```
 
-That sets Tokyo Night, lists the apps it found, asks whether to connect their
-configs, and — if Hyprpaper is installed — offers to fetch wallpapers. Every
-question defaults to the safe answer, and `kromi unlink` undoes the
-connections. From then on, switching is one command:
+That lists the apps it found and asks whether to connect their configs, offers
+to fetch wallpapers if Hyprpaper is installed, applies Tokyo Night, and then
+offers to browse the themes so you can pick one. Nothing changes on screen
+until the questions are answered, and `kromi unlink` undoes the connections.
+From then on, switching is one command:
 
 ```sh
 kromi set nord
