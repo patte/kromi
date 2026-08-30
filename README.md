@@ -2,7 +2,7 @@
 
 Beautiful and simple theming for Hyprland and your favorite apps.
 
-The included themes and template-driven approach come from
+The included themes and template-driven approach are derived from
 [Omarchy](https://github.com/basecamp/omarchy), adapted here into a standalone
 tool.
 
@@ -16,8 +16,9 @@ kromi is Bash and sed. There is nothing to compile, no daemon, and no assumed
 distribution. It does not install your apps or take over their configs:
 
 - Theme switches write generated files inside kromi's own state directory.
-- Connecting an app is a separate, one-time config change that you approve.
-- `kromi unlink` removes that connection and restores settings kromi replaced.
+- Connecting an app is a one-time config change that you approve — usually an
+  include, import, or pointer to kromi's generated files.
+- `kromi unlink` removes that connection and restores any settings kromi replaced.
 
 ## Install
 
@@ -28,7 +29,7 @@ curl -fsSL https://raw.githubusercontent.com/patte/kromi/main/install.sh | bash
 The installer clones kromi into `~/.local/share/kromi` and links the command
 into `~/.local/bin`. Run it again to update.
 
-To install those pieces yourself instead:
+To install manually run this:
 
 ```sh
 git clone https://github.com/patte/kromi ~/.local/share/kromi
@@ -48,15 +49,15 @@ Setup walks you through the first run. It:
 3. offers to download wallpapers when a wallpaper app is available;
 4. applies Tokyo Night on a fresh install, then offers to browse other themes.
 
-The questions come before anything changes on screen. Every config change is
-listed under [Config changes and undoing them](#config-changes-and-undoing-them)
-and can be reversed with `kromi unlink`.
+The questions come before anything changes on screen.
+Every config change is listed and reversible with `kromi unlink`; see
+[Config changes and undoing them](#config-changes-and-undoing-them).
 
 After setup, switch themes directly or browse them interactively:
 
 ```sh
-kromi set nord
-kromi interactive
+kromi interactive        # browse themes: n/p step, a auto, r restore, x keep
+kromi set nord           # set nord theme
 ```
 
 If you manage your own dotfiles, skip `setup` and add the connections from
@@ -65,10 +66,11 @@ If you manage your own dotfiles, skip `setup` and add the connections from
 ## Everyday use
 
 ```sh
+kromi interactive        # browse themes: n/p step, a auto, r restore, x keep
+
 kromi set <theme>        # apply a theme
 kromi list               # list themes and mark the current one
 kromi current            # print the current theme
-kromi interactive        # browse themes: n/p step, a auto, r restore, x keep
 
 kromi wallpaper next     # use the current theme's next wallpaper
 kromi wallpaper fetch    # download wallpaper sets (needs git)
@@ -102,7 +104,7 @@ other apps. kromi updates only the settings it needs; see
 
 kromi ships without wallpapers: a palette is a list of numbers, while a
 wallpaper is somebody's picture. Put your own images under
-`~/.config/kromi/wallpapers/<theme>/`, or fetch the sets Omarchy uses:
+`~/.config/kromi/wallpapers/<theme>/`, or fetch the sets Omarchy uses (setup offers this):
 
 ```sh
 kromi wallpaper fetch [theme...]
@@ -121,14 +123,14 @@ photography with artwork that is not. Point `KROMI_WALLPAPERS_REPO` and
 kromi deliberately separates applying a theme from connecting app configs:
 
 - `kromi set` renders files under `~/.local/state/kromi/current/` and reloads
-  detected apps. It never edits the config of an app you have not connected.
+  detected apps.
 - `kromi link` makes the one-time config changes that tell apps to use those
   generated files. `kromi setup` asks before running it.
 - `kromi unlink` removes kromi's lines and restores the settings it backed up.
 
 This separation keeps ordinary theme switching safe for people who manage
 their own dotfiles. Most integrations add an include or import. VS Code, VLC,
-and Firefox are narrow exceptions because they do not provide a suitable
+and Firefox are exceptions because they do not provide a suitable
 config include.
 
 ### Exact changes
@@ -168,7 +170,7 @@ home directory. `kromi firefox-live install` puts a loader beside Firefox's
 program files so open windows can follow a theme switch. It usually needs root,
 and a Firefox update may remove it.
 
-Setup offers this option when Firefox is detected; it never installs it without
+Setup offers this option when Firefox is detected, it doesn't installs it without
 asking. See [Firefox live switching](docs/integrations.md#live-switching) for
 details.
 
