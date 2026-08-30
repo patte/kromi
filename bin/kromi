@@ -1010,9 +1010,10 @@ cmd_setup() {
   if ((!named)) && [[ -t 0 ]] && ask "Browse themes now? (n/p changes theme; x keeps it)" y; then
     printf '\n'
     cmd_interactive
-    return
+  else
+    printf 'Next: `kromi set <theme>` or `kromi interactive`\n'
   fi
-  printf 'Next: `kromi set <theme>` or `kromi interactive`\n'
+  printf 'Enjoy!\n'
 }
 
 cmd_help() {
