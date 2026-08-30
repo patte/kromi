@@ -222,6 +222,10 @@ This links the current working tree as-is, including uncommitted changes.
 
 The suite uses a throwaway XDG root and does not signal your running desktop.
 
+## Contributions
+
+All contributions are welcome! I'm quite open to a lot of shenanigans in here, as long as they’re beautiful and safe. Let's hear it!
+
 ## Credit
 
 The palettes and template-and-sed approach come from
