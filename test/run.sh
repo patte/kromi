@@ -165,6 +165,12 @@ check $? "current reports the theme just set"
 grep -q '#1a1b26' "$XDG_STATE_HOME/kromi/current/waybar.css"
 check $? "palette values reach the generated css"
 
+# A theme with no wallpaper still has to look like the theme: the bare desktop
+# takes the palette's background, in both spellings of the config.
+grep -q 'background_color = "#1a1b26"' "$XDG_STATE_HOME/kromi/current/hyprland.lua" &&
+  grep -q 'background_color = rgb(1a1b26)' "$XDG_STATE_HOME/kromi/current/hyprland.conf"
+check $? "hyprland paints the bare desktop in the palette's background"
+
 # Detection runs over the real app definitions here, not the dummy.
 "$KROMI" set nord >/dev/null 2>&1
 check $? "set succeeds when an app is undetected"
