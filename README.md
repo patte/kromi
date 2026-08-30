@@ -26,8 +26,8 @@ distribution. It does not install your apps or take over their configs:
 curl -fsSL https://raw.githubusercontent.com/patte/kromi/main/install.sh | bash
 ```
 
-The installer clones kromi into `~/.local/share/kromi` and links the command
-into `~/.local/bin`. Run it again to update.
+The piped installer clones kromi into `~/.local/share/kromi` and links the
+command into `~/.local/bin`. Run it again to update.
 
 To install manually run this:
 
@@ -170,7 +170,7 @@ home directory. `kromi firefox-live install` puts a loader beside Firefox's
 program files so open windows can follow a theme switch. It usually needs root,
 and a Firefox update may remove it.
 
-Setup offers this option when Firefox is detected, it doesn't installs it without
+Setup offers this option when Firefox is detected; it never installs it without
 asking. See [Firefox live switching](docs/integrations.md#live-switching) for
 details.
 
@@ -184,7 +184,17 @@ customizations do not require changing the checkout.
 - [Extending kromi](docs/extending.md) — add a theme, customize a template, or
   write a new app definition.
 
-## Tests
+## Development
+
+From a checkout, run the installer directly:
+
+```sh
+./install.sh
+```
+
+This links the current working tree as-is, including uncommitted changes.
+
+### Tests
 
 ```sh
 ./test/run.sh

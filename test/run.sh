@@ -1054,6 +1054,25 @@ else
   grep -q '^Updated kromi in ' "$SANDBOX/install2.out" && grep -q 'not on your PATH' "$SANDBOX/install2.out" && grep -q "^Next: $INSTALL_HOME/.local/bin/kromi setup$" "$SANDBOX/install2.out"
   check $? "a second run updates in place and notices a PATH without ~/.local/bin"
 
+  # Running the script from this checkout is development mode: repoint the
+  # existing managed command at the working tree without pulling or copying.
+  HOME=$INSTALL_HOME PATH="$INSTALL_HOME/.local/bin:$PATH" \
+    bash "$ROOT/install.sh" >"$SANDBOX/install-local.out" 2>&1
+  [[ $(readlink "$INSTALL_HOME/.local/bin/kromi") == "$ROOT/bin/kromi" ]] &&
+    grep -q "^Using local checkout $ROOT\\.$" "$SANDBOX/install-local.out"
+  check $? "running install.sh from a checkout installs that working tree"
+
+  grep -q 'Connecting makes one small config change per app' "$INSTALL_HOME/.local/bin/kromi"
+  check $? "the local install exposes working-tree changes immediately"
+
+  # Reading the same script over stdin remains clone mode, as the README's
+  # curl command does.
+  PIPED_HOME="$SANDBOX/install-piped"
+  mkdir -p "$PIPED_HOME"
+  HOME=$PIPED_HOME KROMI_REPO=$ROOT bash <"$ROOT/install.sh" >"$SANDBOX/install-piped.out" 2>&1
+  [[ $(readlink "$PIPED_HOME/.local/bin/kromi") == "$PIPED_HOME/.local/share/kromi/bin/kromi" ]]
+  check $? "a piped installer clones instead of treating its input as a checkout"
+
   # A kromi of somebody else's on PATH is not ours to replace.
   OTHER_HOME="$SANDBOX/install-other"
   mkdir -p "$OTHER_HOME/.local/bin"
@@ -1062,6 +1081,14 @@ else
   ! HOME=$OTHER_HOME KROMI_REPO=$ROOT bash "$ROOT/install.sh" >/dev/null 2>&1 &&
     [[ ! -L $OTHER_HOME/.local/bin/kromi && $("$OTHER_HOME/.local/bin/kromi") == theirs ]]
   check $? "install.sh refuses to replace a kromi that is not a link into its checkout"
+
+  # A symlink is replaceable only when it points into another kromi checkout.
+  LINK_HOME="$SANDBOX/install-link"
+  mkdir -p "$LINK_HOME/.local/bin"
+  ln -s /bin/true "$LINK_HOME/.local/bin/kromi"
+  ! HOME=$LINK_HOME bash "$ROOT/install.sh" >/dev/null 2>&1 &&
+    [[ $(readlink "$LINK_HOME/.local/bin/kromi") == /bin/true ]]
+  check $? "install.sh refuses to repoint an unrelated symlink"
 
   # Nor is a directory with a .git in it a checkout of kromi.
   NOT_KROMI="$SANDBOX/not-kromi"
