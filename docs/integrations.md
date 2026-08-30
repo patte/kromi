@@ -5,19 +5,16 @@ kromi has two deliberately separate operations:
 - `kromi set` renders app files under
   `${XDG_STATE_HOME:-~/.local/state}/kromi/current/` and reloads detected apps.
 - `kromi link` makes the one-time config changes that tell apps to use those
-  files.
+  files. `kromi setup` asks before running it.
 
 Running `set` never edits an unlinked app config. Once explicitly linked, VS
 Code, VLC, and Firefox are narrow exceptions to the usual include-based model:
 each updates only the documented settings it needs because the app provides no
 suitable config include.
 
-Run `kromi link` to connect every detected app, name selected apps, or skip it
-and use the manual setup below:
-
 ```sh
-kromi link
-kromi link waybar mako ghostty
+kromi link                          # every detected app
+kromi link waybar mako ghostty      # only these
 kromi unlink waybar mako ghostty
 ```
 
@@ -35,7 +32,7 @@ kromi unlink waybar mako ghostty
 | Neovim | Lua colorscheme | reloads responsive instances | config include |
 | VS Code | JSON colour customizations | watches settings | `jq`; linked settings are merged in place |
 | VLC | light/dark marker | next start | linked `qt-dark-palette` is changed in place |
-| Firefox | chrome and content CSS | next start | linked profile files, or the live helper |
+| Firefox | chrome and content CSS | next start | linked profile files, or `kromi firefox-live` |
 
 ## Manual setup
 
@@ -50,9 +47,9 @@ with your absolute home path where an app does not expand `~`.
 | Ghostty | `~/.config/ghostty/config` | `config-file = ?"~/.local/state/kromi/current/ghostty.conf"` |
 | Hyprland 0.5x | `~/.config/hypr/hyprland.lua` | `pcall(dofile, (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/kromi/current/hyprland.lua")` |
 | Older Hyprland | `~/.config/hypr/hyprland.conf` | `source = ~/.local/state/kromi/current/hyprland.conf` |
+| Hyprpaper | `~/.config/hypr/hyprpaper.conf` | `source = ~/.local/state/kromi/current/hyprpaper.conf` |
 | btop | `~/.config/btop/btop.conf` | symlink `btop.theme` into `~/.config/btop/themes/kromi.theme`, then set `color_theme = "kromi"` |
 | Neovim | `~/.config/nvim/init.lua` | `pcall(dofile, (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/kromi/current/neovim.lua")` |
-| Hyprpaper | `~/.config/hypr/hyprpaper.conf` | `source = ~/.local/state/kromi/current/hyprpaper.conf` |
 | Firefox | each profile's `chrome/` and `user.js` | see [Firefox](#firefox) |
 
 Waybar and Wofi need absolute import paths because their GTK stylesheets do not
@@ -63,6 +60,31 @@ are prepended, allowing settings below kromi's line to remain in charge.
 
 VS Code and VLC have no manual include to add; their limited in-place changes
 are what opting in with `kromi link` enables.
+
+## Hyprland
+
+The generated file sets the border colours and `misc:background_color`, so a
+theme with no wallpaper shows the palette's background rather than whatever
+was there before. Hyprland only paints that colour with its logo disabled, so
+the file sets `misc:disable_hyprland_logo` too. Anything below kromi's line in
+your own config wins.
+
+## Hyprpaper
+
+Hyprpaper reads its config at startup, so the generated `hyprpaper.conf`
+points at `~/.local/state/kromi/current/wallpaper`, a link kromi keeps aimed
+at the current picture; a login needs nothing of kromi's. While Hyprpaper is
+running, switches and `kromi wallpaper next` reach it over IPC.
+`kromi wallpaper apply` reapplies the current image to a running daemon,
+including in a manually wired setup.
+
+The file also sets `splash = false`, preventing Hyprpaper's own splash
+overlay. Options below the `source` line in your config remain in charge.
+
+Sourcing a file that does not exist is the one config error Hyprpaper refuses
+to start on, so `kromi link hyprpaper` renders a theme first when none is set.
+A theme with no pictures leaves the link absent; Hyprpaper logs that and
+carries on.
 
 ## VS Code
 
@@ -153,9 +175,40 @@ imports and symlinks and restores the saved website-appearance preference.
 Because Firefox copies `user.js` into `prefs.js` at startup, the last appearance
 value may remain until it is changed in Firefox settings.
 
-For switches in a running browser, use the separate
-[live Firefox helper](firefox-live.md). Use profile linking or the live helper,
-not both.
+### Live switching
+
+`kromi firefox-live` is the optional way to recolour windows that are already
+open. It is a larger step than linking: Firefox runs privileged JavaScript
+only from its installation directory, so a loader goes in beside the program,
+usually as root, and a Firefox update that replaces that directory removes it
+again — run the install again afterwards.
+
+```sh
+kromi unlink firefox            # the two do not compose; see below
+kromi firefox-live install
+```
+
+Then restart Firefox once. Future `kromi set` commands update open windows
+immediately, and kromi writes nothing into the profile in this mode.
+`kromi firefox-live status` says whether the loader is in and current;
+`kromi firefox-live uninstall` takes it out. `KROMI_FIREFOX_APP` names
+Firefox's installation directory when it is somewhere unusual.
+
+A stylesheet imported through `userChrome.css` loads before one registered by
+the loader and wins over it, so a linked profile would pin the palette Firefox
+started with. Both sides guard this: the installer warns about linked profiles,
+and `kromi link firefox` refuses while the loader is installed.
+
+The loader watches kromi's generated Firefox files and registers their
+stylesheets through Firefox's internal stylesheet service. Each Firefox
+process listens on a Unix socket below `$XDG_RUNTIME_DIR/kromi`; on every
+switch kromi connects to each, and the connection itself is the whole
+notification. That needs `socat`, a netcat with `-U`, or `python3`. Without
+one of those the loader falls back to checking the file: often for a short
+while after a switch, rarely otherwise, and not at all while the machine is
+idle. The chrome stylesheet is the change marker, so after editing another
+generated file by hand, `touch ~/.local/state/kromi/current/firefox.css` or
+set the theme again.
 
 ## Neovim
 

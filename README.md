@@ -20,7 +20,7 @@ https://github.com/user-attachments/assets/ed646693-63d0-411f-a5fc-e57ae086aa4b
 
 | App | What kromi styles | When a switch appears |
 |---|---|---|
-| Hyprland | compositor colours | immediately |
+| Hyprland | borders and the bare desktop | immediately |
 | Hyprpaper | wallpaper | immediately |
 | Waybar | bar | immediately |
 | Wofi | launcher | next launch |
@@ -30,7 +30,7 @@ https://github.com/user-attachments/assets/ed646693-63d0-411f-a5fc-e57ae086aa4b
 | Neovim | editor | immediately while using kromi |
 | VS Code | editor and workbench | immediately |
 | VLC | light or dark Qt palette | after restart |
-| Firefox | browser chrome and internal pages | after restart, or immediately with the optional live helper |
+| Firefox | browser chrome and internal pages | after restart, or immediately with `kromi firefox-live` |
 
 VS Code, VLC, and Firefox cannot consume a generated config as directly as the
 other apps. kromi handles them without taking over the rest of their settings;
@@ -43,99 +43,59 @@ git clone https://github.com/patte/kromi ~/.local/share/kromi
 ln -s ~/.local/share/kromi/bin/kromi ~/.local/bin/kromi
 ```
 
-Optional helpers:
-
-```sh
-ln -s ~/.local/share/kromi/bin/kromi-backgrounds ~/.local/bin/kromi-backgrounds
-ln -s ~/.local/share/kromi/bin/kromi-firefox-live ~/.local/bin/kromi-firefox-live
-```
-
-They do nothing unless you run them. The first fetches wallpapers; the second
-enables live Firefox updates and requires a system-level installation step.
-
 ## Quick start
 
-Choose an initial theme, inspect the detected apps, then connect their configs
-to kromi's generated files:
-
 ```sh
-kromi set tokyo-night
-kromi apps
-kromi link
+kromi setup
 ```
 
-`link` is a one-time, opt-in setup. After that, switching is just:
+That sets Tokyo Night, lists the apps it found, asks whether to connect their
+configs, and — if Hyprpaper is installed — offers to fetch wallpapers. Every
+question defaults to the safe answer, and `kromi unlink` undoes the
+connections. From then on, switching is one command:
 
 ```sh
 kromi set nord
+kromi interactive      # or browse: n/p step, a auto, r restore, x keep
 ```
 
-To connect only particular apps, name them:
-
-```sh
-kromi link waybar mako ghostty
-```
-
-Use `kromi unlink [app...]` to undo the corresponding changes. If you manage
-your configs yourself, skip `link` and use the lines in
-[App integrations](docs/integrations.md#manual-setup).
+If you would rather wire your configs yourself, skip `setup` and add the lines
+from [App integrations](docs/integrations.md#manual-setup) instead.
 
 ## Usage
 
-### Switch themes
-
-The easiest way to choose a theme is to browse them interactively:
-
 ```sh
-kromi interactive      # browse manually
+kromi set <theme>        # render and apply a theme
+kromi list               # list themes and mark the current one
+kromi current            # print the current theme
+kromi interactive        # browse themes and keep the one you stop on
+
+kromi apps               # list integrations and mark detected apps
+kromi link [app...]      # connect detected or named apps
+kromi unlink [app...]    # remove those connections
+
+kromi wallpaper next     # cycle through the current theme's wallpapers
+kromi wallpaper fetch    # download wallpaper sets (needs git)
 ```
 
-| Key | Action |
-|---|---|
-| `n` / `p` | Show the next or previous theme |
-| `a` | Toggle automatic browsing |
-| `1`–`9` | Set the automatic interval in seconds |
-| `r` | Return to the starting theme and keep browsing |
-| `x` / Ctrl-C | Keep the current theme and exit |
+## Wallpapers
 
+kromi ships none: a palette is a list of numbers, a wallpaper is somebody's
+picture. Put your own under `~/.config/kromi/wallpapers/<theme>/`, or fetch
+the sets Omarchy uses with `kromi wallpaper fetch [theme...]`. Existing files
+are never overwritten. A theme without pictures still applies; Hyprland paints
+the bare desktop in the palette's background instead.
 
-Alternatively you can use specific commands:
-
-```sh
-kromi set <theme>      # render and apply a theme
-kromi list             # list themes and mark the current one
-kromi current          # print the current theme
-```
-
-### Manage app connections
-
-```sh
-kromi apps             # list integrations and mark detected apps
-kromi link [app...]    # connect detected or named apps
-kromi unlink [app...]  # remove those connections
-```
-
-### Wallpapers
-
-```sh
-kromi-backgrounds        # download wallpapers for every known theme
-kromi background next    # cycle through the current theme's wallpapers
-```
-
-This fetches wallpaper sets for every known theme from
-[Omarchy](https://github.com/basecamp/omarchy) v3.8.4. Once Hyprpaper is linked,
-the usual `kromi set <theme>` switches its wallpaper along with the rest of the
-theme.
-
-Many themes have several wallpapers. The downloader never overwrites existing
-files. See [Wallpapers](docs/wallpapers.md) for selective downloads, available
-sets, licensing, custom images, and Hyprpaper setup.
+Fetched images are for your own use — the collection mixes freely licensed
+photography with artwork that is not. Point `KROMI_WALLPAPERS_REPO` and
+`KROMI_WALLPAPERS_REF` at another repository laid out as
+`themes/<name>/backgrounds/` to fetch from somewhere else.
 
 ## How it works
 
-`kromi set` renders one file per app under
-`~/.local/state/kromi/current/`, swaps the complete theme into place, and
-reloads detected apps. It does not edit their configs.
+`kromi set` renders one file per app under `~/.local/state/kromi/current/`,
+swaps the complete theme into place, and reloads detected apps. It does not
+edit their configs.
 
 `kromi link` makes the small, app-specific config change that points an app at
 those generated files. This separation keeps theme switching safe for people
@@ -144,13 +104,10 @@ exceptions because those apps do not provide ordinary config includes.
 
 ## Customize and extend
 
-- [Themes and templates](docs/themes.md) — add a theme, override a rendered
-  file, or customize a template.
-- [Wallpapers](docs/wallpapers.md) — provide your own images or fetch a set.
-- [App integrations](docs/integrations.md) — manual setup and app-specific
-  behavior.
-- [Live Firefox switching](docs/firefox-live.md) — recolour an open Firefox.
-- [Adding an app](docs/adding-an-app.md) — write a new app definition.
+- [App integrations](docs/integrations.md) — manual setup, app-specific
+  behaviour, and live Firefox switching.
+- [Extending kromi](docs/extending.md) — add a theme, customize a template,
+  or write a new app definition.
 
 User files under `~/.config/kromi/` shadow shipped files of the same name, so
 customizations do not require changing the checkout.
