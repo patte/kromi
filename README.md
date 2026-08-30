@@ -43,8 +43,7 @@ curl -fsSL https://raw.githubusercontent.com/patte/kromi/main/install.sh | bash
 ```
 
 That clones kromi into `~/.local/share/kromi` and links `kromi` into
-`~/.local/bin`; run it again to update. It is only ever these two lines, if
-you would rather do them yourself:
+`~/.local/bin`; run it again to update. If you would rather do them yourself:
 
 ```sh
 git clone https://github.com/patte/kromi ~/.local/share/kromi
