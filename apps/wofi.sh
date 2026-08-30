@@ -16,3 +16,7 @@ unlink() {
   drop_line "$style" "$palette_import"
   drop_line "$style" "$theme_import"
 }
+
+linked() {
+  [[ -f $style ]] && grep -qxF "$palette_import" "$style" && grep -qxF "$theme_import" "$style"
+}

@@ -16,3 +16,8 @@ unlink() {
   rm -f "$config_dir/themes/kromi.theme"
   set_kv "$config_dir/btop.conf" color_theme '"Default"'
 }
+
+linked() {
+  [[ -L $config_dir/themes/kromi.theme ]] &&
+    grep -qE '^color_theme *= *"kromi"' "$config_dir/btop.conf" 2>/dev/null
+}

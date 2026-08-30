@@ -184,12 +184,22 @@ app_run() {
     APP="$app"
     templates=""
     uses_wallpaper=0
+    # Set by the few that edit settings in place rather than add an include.
+    in_place=0
     detect() { command -v "$APP" >/dev/null 2>&1; }
     reload() { :; }
     link() { warn "$APP: nothing to link"; }
     unlink() { :; }
+    # Whether link's change is in place right now — read from the config, not
+    # from anything kromi remembers, so a line someone took out shows as gone.
+    # The default covers every app that is one include line in one file.
+    linked() {
+      [[ -n ${config:-} && -n ${include:-} && -f $config ]] &&
+        grep -qxF "$include" "$config"
+    }
     _templates() { printf '%s\n' $templates; }
     _uses_wallpaper() { printf '%s\n' "$uses_wallpaper"; }
+    _in_place() { printf '%s\n' "$in_place"; }
     # shellcheck disable=SC1090
     source "$file"
     "$fn" "$@"
@@ -684,15 +694,18 @@ cmd_wallpaper() {
   esac
 }
 
+# A star for detected, and a word for linked: which is what setup did, what
+# a hand-edited config has undone, and what to look at when an app is not
+# following a switch.
 cmd_apps() {
-  local app enabled
+  local app enabled mark state
   enabled=" $(enabled_apps | tr '\n' ' ')"
   for app in $(list_apps); do
-    if [[ $enabled == *" $app "* ]]; then
-      printf '* %s\n' "$app"
-    else
-      printf '  %s\n' "$app"
-    fi
+    mark=" "
+    [[ $enabled == *" $app "* ]] && mark="*"
+    state=""
+    app_run "$app" linked 2>/dev/null && state="linked"
+    printf '%s %-10s %s\n' "$mark" "$app" "$state" | sed 's/ *$//'
   done
 }
 
@@ -756,6 +769,15 @@ cmd_setup() {
     printf 'No supported apps detected; nothing to link.\n'
   else
     printf 'Detected: %s\n' "${apps[*]}"
+    # Two kinds of change hide behind one question, so say which is which.
+    local -a in_place=()
+    for app in "${apps[@]}"; do
+      [[ $(app_run "$app" _in_place) == 1 ]] && in_place+=("$app")
+    done
+    if ((${#in_place[@]})); then
+      printf 'Linking adds one include line to each config; %s: a few settings edited in place.\n' \
+        "$(IFS=,; printf '%s' "${in_place[*]}" | sed 's/,/, /g')"
+    fi
     if ask "Link them to kromi's generated files? (kromi unlink undoes it)" y; then
       cmd_link "${apps[@]}"
     else
@@ -806,7 +828,7 @@ kromi — apply one colour palette across a desktop's apps.
   kromi wallpaper fetch  download wallpaper sets (needs git; see README)
     [theme...]
   kromi wallpaper list   what is available to fetch, and how many
-  kromi apps             list app definitions, marking detected ones
+  kromi apps             list app definitions: * detected, and linked or not
   kromi link [app...]    point app configs at kromi's output (opt-in)
   kromi unlink [app...]  undo link
   kromi firefox-live     recolour an open Firefox on every set; needs root,

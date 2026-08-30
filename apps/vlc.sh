@@ -1,4 +1,5 @@
 templates="vlc.conf"
+in_place=1
 
 vlcrc="${XDG_CONFIG_HOME:-$HOME/.config}/vlc/vlcrc"
 backup="$KROMI_STATE/vlc-dark-palette-backup"
@@ -71,6 +72,8 @@ link() {
   fi
   apply
 }
+
+linked() { [[ -f $backup ]]; }
 
 unlink() {
   [[ -f $backup ]] || return 0

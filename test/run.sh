@@ -268,6 +268,23 @@ apps="hyprland hyprpaper waybar wofi mako ghostty btop neovim vscode vlc firefox
 [[ $(grep -c 'kromi/current' "$XDG_CONFIG_HOME/hypr/hyprland.lua") == 1 ]]
 check $? "link is idempotent (hyprland)"
 
+# apps reports what link did, app by app, read back from the configs.
+KROMI_APPS="$apps" "$KROMI" apps >"$SANDBOX/apps.txt"
+unlinked=""
+for app in $apps; do
+  grep -qE "^\* $app +linked$" "$SANDBOX/apps.txt" || unlinked="$unlinked $app"
+done
+[[ -z $unlinked ]]
+check $? "apps marks every linked app as linked"
+[[ -z $unlinked ]] || printf '       not marked:%s\n' "$unlinked"
+
+# And what a hand takes out, it no longer claims.
+sed -i '/kromi\/current/d' "$XDG_CONFIG_HOME/mako/config"
+KROMI_APPS="$apps" "$KROMI" apps | grep -qE '^\* mako +linked$'
+[[ $? != 0 ]]
+check $? "apps sees an include line that was removed by hand"
+"$KROMI" link mako >/dev/null
+
 [[ $(grep -c 'kromi/current' "$XDG_CONFIG_HOME/waybar/style.css") == 2 ]]
 check $? "link adds palette and theme imports (waybar)"
 
@@ -389,6 +406,9 @@ echo "unlinking"
 
 ! grep -rq 'kromi' "$XDG_CONFIG_HOME/hypr" "$XDG_CONFIG_HOME/waybar" 2>/dev/null
 check $? "unlink leaves no residue"
+
+! KROMI_APPS="$apps" "$KROMI" apps | grep -q 'linked'
+check $? "apps marks nothing as linked after unlink"
 
 diff -r "$SANDBOX/config.before/hypr" "$XDG_CONFIG_HOME/hypr" >/dev/null
 check $? "unlink restores configs byte for byte"
@@ -768,6 +788,14 @@ check $? "setup links the detected apps by default"
 
 grep -qx 'Wallpaper skipped: hyprpaper is not installed' "$SANDBOX/setup.out"
 check $? "setup says so when nothing is there to show a wallpaper"
+
+! grep -q 'edited in place' "$SANDBOX/setup.out"
+check $? "setup does not mention in-place edits when no such app is detected"
+
+KROMI_APPS="hyprland vscode vlc" "$KROMI" setup nord >"$SANDBOX/setup-inplace.out" 2>&1 </dev/null
+grep -q 'vscode, vlc: a few settings edited in place' "$SANDBOX/setup-inplace.out"
+check $? "setup says which apps get settings edited in place"
+KROMI_APPS="hyprland vscode vlc" "$KROMI" unlink >/dev/null
 KROMI_APPS="hyprland waybar" "$KROMI" unlink >/dev/null
 
 # With hyprpaper there and pictures for the theme, it reports the one chosen.

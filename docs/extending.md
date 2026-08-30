@@ -110,6 +110,13 @@ link()   { prepend_line "$config" "$include"; }
 unlink() { drop_line "$config" "$include"; }
 ```
 
+`kromi apps` also reports whether each app is linked, by calling `linked`.
+The default checks that `$include` is a line of `$config`, which is right for
+a definition shaped like the one above; anything else — a symlink, a backup
+file, several imports — defines its own. Set `in_place=1` when `link` edits
+settings rather than adding an include, so `kromi setup` can say so before it
+asks.
+
 Its template belongs at `templates/foo.conf.tpl`, or at
 `~/.config/kromi/templates/foo.conf.tpl` for a personal integration.
 
@@ -127,6 +134,9 @@ Its template belongs at `templates/foo.conf.tpl`, or at
 | `set_json <file> <key> <value>` | set one JSON key with `jq` |
 | `drop_json <file> <key>` | remove one JSON key with `jq` |
 | `signal_reload <process> [signal]` | signal a process and restart it if the reload kills it |
+
+And overrides, each with a default: `detect`, `reload`, `link`, `unlink`,
+`linked`.
 
 Set `uses_wallpaper=1` when the integration shows the current wallpaper; this
 makes `kromi wallpaper apply` and `next` call its `reload` function, and lets

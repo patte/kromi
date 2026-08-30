@@ -1,4 +1,5 @@
 templates="vscode.json"
+in_place=1
 
 settings="${XDG_CONFIG_HOME:-$HOME/.config}/Code/User/settings.json"
 backup="$KROMI_STATE/vscode-settings-backup.json"
@@ -78,6 +79,9 @@ link() {
   fi
   apply
 }
+
+# The backup is the mark: it exists exactly while vscode is linked.
+linked() { [[ -f $backup ]]; }
 
 unlink() {
   [[ -f $settings ]] || return 0

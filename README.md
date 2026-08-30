@@ -70,7 +70,7 @@ kromi list               # list themes and mark the current one
 kromi current            # print the current theme
 kromi interactive        # browse themes and keep the one you stop on
 
-kromi apps               # list integrations and mark detected apps
+kromi apps               # list integrations: * detected, and linked or not
 kromi link [app...]      # connect detected or named apps
 kromi unlink [app...]    # remove those connections
 

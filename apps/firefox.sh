@@ -1,4 +1,5 @@
 templates="firefox.css firefox-content.css firefox.conf"
+in_place=1
 
 # Where the profiles live. Firefox has moved to the XDG directories and still
 # reads the old location, so take whichever is there rather than pick — both,
@@ -176,6 +177,17 @@ link() {
     return 1
   }
   apply
+}
+
+# Linked while any profile still carries the import; the marks alone would go
+# on saying so after someone cleaned their userChrome.css by hand.
+linked() {
+  local profile
+  while read -r profile; do
+    [[ -f $marks/$(basename "$profile") ]] || continue
+    grep -qxF "$chrome_import" "$profile/chrome/userChrome.css" 2>/dev/null && return 0
+  done < <(profiles)
+  return 1
 }
 
 unlink() {
