@@ -15,14 +15,14 @@ fi
 
 reload() { hyprctl reload >/dev/null 2>&1 || true; }
 
+# Never into a config that is not there: Hyprland reads a file holding only
+# kromi's line as a whole config, and that is a session with no keybinds.
 link() {
-  [[ -f $config ]] || die_hint
+  if [[ ! -f $config ]]; then
+    warn "no $config to link into"
+    return 1
+  fi
   prepend_line "$config" "$include"
 }
 
 unlink() { drop_line "$config" "$include"; }
-
-die_hint() {
-  printf 'kromi: no %s to link into\n' "$config" >&2
-  return 1
-}
