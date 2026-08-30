@@ -768,12 +768,13 @@ KROMI_APPS=dummy "$KROMI" set nord >/dev/null
 check $? "a remembered wallpaper that is gone falls back to the first"
 echo y >"$BG/nord/2-second.png"
 
-# The old name still reads: pictures fetched before the rename stay found.
+# backgrounds/ is Omarchy's name for the directory, so a theme brought over
+# from there finds its pictures without being renamed.
 mkdir -p "$XDG_CONFIG_HOME/kromi/backgrounds/kanagawa"
-echo k >"$XDG_CONFIG_HOME/kromi/backgrounds/kanagawa/old.jpg"
+echo k >"$XDG_CONFIG_HOME/kromi/backgrounds/kanagawa/omarchy.jpg"
 KROMI_APPS=dummy "$KROMI" set kanagawa >/dev/null
-[[ $("$KROMI" wallpaper) == "$XDG_CONFIG_HOME/kromi/backgrounds/kanagawa/old.jpg" ]]
-check $? "a backgrounds/ directory is still read"
+[[ $("$KROMI" wallpaper) == "$XDG_CONFIG_HOME/kromi/backgrounds/kanagawa/omarchy.jpg" ]]
+check $? "a backgrounds/ directory is read, as Omarchy names it"
 
 # A theme nobody has pictures for must not break a switch.
 KROMI_APPS=dummy "$KROMI" set gruvbox >/dev/null

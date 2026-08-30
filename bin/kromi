@@ -348,8 +348,8 @@ build_sed_script() {
 # whichever daemon is installed.
 
 # Yours first, then whatever the theme ships. `backgrounds/` is read as well
-# as `wallpapers/`: it is the name Omarchy's themes use, so one of those
-# dropped in unchanged still finds its pictures.
+# as `wallpapers/` because it is the name Omarchy's themes use, so one of
+# those dropped in unchanged still finds its pictures.
 #
 # if/fi rather than `[[ ]] &&`, which would leave the group returning 1 when a
 # directory is missing and take the whole pipeline down under pipefail.
@@ -909,7 +909,7 @@ main() {
     set) cmd_set "$@" ;;
     list) cmd_list ;;
     current) cmd_current ;;
-    wallpaper | wp | background | bg) cmd_wallpaper "$@" ;;
+    wallpaper | wp) cmd_wallpaper "$@" ;;
     interactive | i | demo) cmd_interactive "$@" ;;
     apps) cmd_apps ;;
     link) cmd_link "$@" ;;
