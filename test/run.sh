@@ -926,6 +926,23 @@ else
   grep -q '^updated ' "$SANDBOX/install2.out" && grep -q 'not on your PATH' "$SANDBOX/install2.out"
   check $? "a second run updates in place and notices a PATH without ~/.local/bin"
 
+  # A kromi of somebody else's on PATH is not ours to replace.
+  OTHER_HOME="$SANDBOX/install-other"
+  mkdir -p "$OTHER_HOME/.local/bin"
+  printf '#!/bin/sh\necho theirs\n' >"$OTHER_HOME/.local/bin/kromi"
+  chmod +x "$OTHER_HOME/.local/bin/kromi"
+  ! HOME=$OTHER_HOME KROMI_REPO=$ROOT bash "$ROOT/install.sh" >/dev/null 2>&1 &&
+    [[ ! -L $OTHER_HOME/.local/bin/kromi && $("$OTHER_HOME/.local/bin/kromi") == theirs ]]
+  check $? "install.sh refuses to replace a kromi that is not a link into its checkout"
+
+  # Nor is a directory with a .git in it a checkout of kromi.
+  NOT_KROMI="$SANDBOX/not-kromi"
+  mkdir -p "$NOT_KROMI"
+  git -C "$NOT_KROMI" init -q
+  ! HOME=$OTHER_HOME KROMI_DIR=$NOT_KROMI bash "$ROOT/install.sh" >"$SANDBOX/install3.out" 2>&1 &&
+    grep -q 'not a kromi checkout' "$SANDBOX/install3.out"
+  check $? "install.sh refuses a directory that is not kromi"
+
   # The linked copy has to be a working kromi, not just a file.
   [[ $(HOME=$INSTALL_HOME XDG_CONFIG_HOME=$INSTALL_HOME/.config XDG_STATE_HOME=$INSTALL_HOME/.local/state \
     KROMI_PATH= KROMI_APPS=probe "$INSTALL_HOME/.local/bin/kromi" set nord 2>/dev/null) == "kromi: Nord" ]]

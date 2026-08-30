@@ -24,19 +24,35 @@ die() {
 
 command -v git >/dev/null 2>&1 || die "git is required"
 
+# A .git is not proof of kromi: update only a checkout that has the program.
 if [[ -d $DIR/.git ]]; then
+  [[ -x $DIR/bin/kromi ]] || die "$DIR is not a kromi checkout (no bin/kromi); set KROMI_DIR"
   git -C "$DIR" pull --ff-only --quiet || die "could not update $DIR; pull it by hand"
   printf 'updated %s\n' "$DIR"
 elif [[ -e $DIR ]]; then
   die "$DIR exists and is not a git checkout; move it aside, or set KROMI_DIR"
 else
   git clone --quiet "$REPO" "$DIR" || die "could not clone $REPO"
+  [[ -x $DIR/bin/kromi ]] || die "$REPO is not kromi (no bin/kromi in the clone)"
   printf 'installed %s\n' "$DIR"
 fi
 
+# A name on PATH is not ours to take: link over nothing, or over a link that
+# already points into this checkout.
+
+target="$BIN_DIR/kromi"
+if [[ -L $target ]]; then
+  case $(readlink "$target") in
+    "$DIR"/*) ;;
+    *) die "$target is a link to $(readlink "$target"), not to $DIR; remove it first" ;;
+  esac
+elif [[ -e $target ]]; then
+  die "$target exists and is not a link to $DIR; remove it first, or set KROMI_BIN_DIR"
+fi
+
 mkdir -p "$BIN_DIR"
-ln -sfn "$DIR/bin/kromi" "$BIN_DIR/kromi"
-printf 'linked %s/kromi\n' "$BIN_DIR"
+ln -sfn "$DIR/bin/kromi" "$target"
+printf 'linked %s\n' "$target"
 
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;
