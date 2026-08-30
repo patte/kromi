@@ -10,7 +10,7 @@ tool.
 kromi set tokyo-night
 ```
 
-https://github.com/user-attachments/assets/ed646693-63d0-411f-a5fc-e57ae086aa4b
+https://github.com/user-attachments/assets/c2e8dc51-a46c-466e-8982-21b813ea0c61
 
 kromi is Bash and sed. There is nothing to compile, no daemon, and no assumed
 distribution. It does not install your apps or take over their configs:
