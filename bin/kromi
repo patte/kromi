@@ -809,8 +809,11 @@ cmd_unlink() {
 
 # A yes/no question with a default, which is also the answer when nobody is
 # there to ask: setup piped from a script takes the safe path through.
+# `uninstall -y` answers yes to everything it would otherwise ask.
+assume_yes=0
 ask() {
   local question=$1 default=$2 hint answer
+  ((assume_yes)) && return 0
   if [[ ! -t 0 ]]; then
     [[ $default == y ]]
     return
@@ -1016,6 +1019,87 @@ cmd_setup() {
   printf 'Enjoy!\n'
 }
 
+# --- uninstall --------------------------------------------------------------
+# install.sh and setup, undone together: every connection out, the loader out,
+# the state and the command gone, and the checkout gone when it is the one the
+# installer made. A checkout anywhere else — a working tree linked with
+# ./install.sh — is not kromi's to delete, and is said to be left. Your own
+# ~/.config/kromi holds your themes and templates, so it is a second question,
+# defaulting to keep.
+
+# Every command on PATH, and the installer's default, that is a link to this
+# very program. A regular file or a link elsewhere is somebody else's.
+command_links() {
+  local path seen=" "
+  for path in "${KROMI_BIN_DIR:-$HOME/.local/bin}/kromi" $(type -aP kromi 2>/dev/null); do
+    [[ $seen == *" $path "* ]] && continue
+    seen="$seen$path "
+    [[ -L $path && $(readlink -f "$path") == "$KROMI_BIN" ]] && printf '%s\n' "$path"
+  done
+  return 0
+}
+
+cmd_uninstall() {
+  case ${1:-} in
+    -y | --yes) assume_yes=1 ;;
+    '') ;;
+    *) die "usage: kromi uninstall [-y]" ;;
+  esac
+
+  local app link live=0 checkout=""
+  local -a linked=() links=()
+  for app in $(list_apps); do
+    app_run "$app" linked 2>/dev/null && linked+=("$app")
+  done
+  "$KROMI_BIN" firefox-live installed 2>/dev/null && live=1
+  mapfile -t links < <(command_links)
+  [[ $KROMI_PATH == "${XDG_DATA_HOME:-$HOME/.local/share}/kromi" ]] && checkout=$KROMI_PATH
+
+  printf 'This removes kromi:\n'
+  ((${#linked[@]})) && printf '  unlink %s\n' "${linked[*]}"
+  ((live)) && printf '  remove Firefox live switching (needs root)\n'
+  printf '  delete %s\n' "$(tilde "$KROMI_STATE")"
+  for link in "${links[@]}"; do printf '  delete %s\n' "$(tilde "$link")"; done
+  if [[ -n $checkout ]]; then
+    printf '  delete %s\n' "$(tilde "$checkout")"
+  else
+    printf '  keep %s, which the installer did not make\n' "$(tilde "$KROMI_PATH")"
+  fi
+  printf '\n'
+  ask "Remove kromi?" n || {
+    printf 'Nothing removed.\n'
+    return 1
+  }
+
+  # Firefox's unlink is what offers to take the loader out, linked or not.
+  local -a undo=("${linked[@]}")
+  if ((live)) && [[ " ${linked[*]} " != *" firefox "* ]]; then undo+=(firefox); fi
+  ((${#undo[@]})) && cmd_unlink "${undo[@]}"
+
+  rm -rf "$KROMI_STATE"
+  for link in "${links[@]}"; do rm -f "$link"; done
+
+  # Not covered by -y: these are the user's files, and deleting them was
+  # never part of what kromi installed.
+  if [[ -d $KROMI_CONFIG ]]; then
+    if ((!assume_yes)) && ask "Also delete $(tilde "$KROMI_CONFIG"), your own themes, templates, and wallpapers?" n; then
+      rm -rf "$KROMI_CONFIG"
+    else
+      printf 'Kept %s.\n' "$(tilde "$KROMI_CONFIG")"
+    fi
+  fi
+
+  if [[ -n $checkout ]]; then
+    printf 'kromi removed.\n'
+    # Last, so nothing of the program is needed after it. Bash keeps reading
+    # the script it already has open, so the exit below still runs.
+    rm -rf "$checkout"
+  else
+    printf 'kromi removed; the checkout at %s is left in place.\n' "$(tilde "$KROMI_PATH")"
+  fi
+  return 0
+}
+
 cmd_help() {
   cat <<'USAGE'
 kromi — apply one color palette across your desktop apps.
@@ -1037,6 +1121,7 @@ kromi — apply one color palette across your desktop apps.
   kromi unlink [app...]  remove those connections and restore settings
   kromi firefox-live     update open Firefox windows on every switch; needs root
     [install|uninstall]  see 'kromi firefox-live help'
+  kromi uninstall [-y]   unlink everything and remove kromi (also: remove)
 
 `set` never edits the config of an app you have not linked. After linking,
 VS Code, VLC, and Firefox need limited settings updates during later switches.
@@ -1058,6 +1143,7 @@ main() {
     apps) cmd_apps ;;
     link) cmd_link "$@" ;;
     unlink) cmd_unlink "$@" ;;
+    uninstall | remove) cmd_uninstall "$@" ;;
     firefox-live)
       load_firefox_live
       firefox_live_main "$@"

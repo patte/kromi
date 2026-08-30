@@ -36,6 +36,18 @@ git clone https://github.com/patte/kromi ~/.local/share/kromi
 mkdir -p ~/.local/bin && ln -s ~/.local/share/kromi/bin/kromi ~/.local/bin/kromi
 ```
 
+## Uninstall
+
+```sh
+kromi uninstall
+```
+
+This unlinks every connected app, removes the Firefox live loader if it is
+installed, and deletes kromi's state, the command, and the clone the installer
+made. It lists all of that and asks first; `-y` answers yes. Your own files in
+`~/.config/kromi` are kept unless you say otherwise, and a checkout linked from
+elsewhere with `./install.sh` is left in place.
+
 ## Quick start
 
 ```sh
@@ -78,6 +90,7 @@ kromi wallpaper fetch    # download wallpaper sets (needs git)
 kromi apps               # show detected apps and whether they are connected
 kromi link [app...]      # connect detected or named apps
 kromi unlink [app...]    # remove those connections
+kromi uninstall          # unlink everything and remove kromi
 ```
 
 ## Supported apps

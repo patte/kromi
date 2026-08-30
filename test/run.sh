@@ -1106,6 +1106,50 @@ else
   [[ $(HOME=$INSTALL_HOME XDG_CONFIG_HOME=$INSTALL_HOME/.config XDG_STATE_HOME=$INSTALL_HOME/.local/state \
     KROMI_PATH= KROMI_APPS=probe "$INSTALL_HOME/.local/bin/kromi" set nord 2>/dev/null) == "kromi: Nord" ]]
   check $? "the installed kromi runs from its own checkout"
+
+  echo "uninstall"
+  # The installer's layout, built from this working tree rather than cloned
+  # from it, so the command under test is the one in the tree. PATH is
+  # pinned: uninstall removes every command on it that leads to the program
+  # under test, and the real one must stay out of reach.
+  UN_HOME="$SANDBOX/uninstall-home"
+  UN_DIR="$UN_HOME/.local/share/kromi"
+  mkdir -p "$UN_DIR" "$UN_HOME/.local/bin"
+  cp -r "$ROOT"/{bin,apps,lib,themes,templates} "$UN_DIR/"
+  ln -s "$UN_DIR/bin/kromi" "$UN_HOME/.local/bin/kromi"
+  # Inline assignments rather than env: a shell wrapper named env is a real
+  # thing on some machines, and the rest of this file does without it.
+  un_kromi() {
+    HOME=$UN_HOME XDG_CONFIG_HOME=$UN_HOME/.config XDG_STATE_HOME=$UN_HOME/.local/state \
+      KROMI_PATH= KROMI_APPS=probe PATH="$UN_HOME/.local/bin:/usr/bin:/bin" kromi "$@"
+  }
+  un_kromi set nord >/dev/null 2>&1
+  mkdir -p "$UN_HOME/.config/kromi/themes"
+
+  ! un_kromi uninstall </dev/null >"$SANDBOX/uninstall-no.out" 2>&1 &&
+    [[ -x $UN_DIR/bin/kromi && -L $UN_HOME/.local/bin/kromi && -d $UN_HOME/.local/state/kromi ]] &&
+    grep -q '^Nothing removed\.$' "$SANDBOX/uninstall-no.out"
+  check $? "uninstall without a yes removes nothing"
+
+  un_kromi uninstall -y </dev/null >"$SANDBOX/uninstall.out" 2>&1 &&
+    [[ ! -e $UN_DIR && ! -e $UN_HOME/.local/bin/kromi && ! -e $UN_HOME/.local/state/kromi ]]
+  check $? "uninstall -y deletes the state, the command, and the installer's clone"
+
+  [[ -d $UN_HOME/.config/kromi/themes ]] && grep -q '^Kept ~/.config/kromi\.$' "$SANDBOX/uninstall.out"
+  check $? "uninstall -y keeps the user's own config directory"
+
+  # The development link points at this working tree, which is not the
+  # installer's clone and is never deleted.
+  local_kromi() {
+    HOME=$INSTALL_HOME XDG_CONFIG_HOME=$INSTALL_HOME/.config XDG_STATE_HOME=$INSTALL_HOME/.local/state \
+      KROMI_PATH= KROMI_APPS=probe PATH="$INSTALL_HOME/.local/bin:/usr/bin:/bin" kromi "$@"
+  }
+  [[ $(readlink "$INSTALL_HOME/.local/bin/kromi") == "$ROOT/bin/kromi" ]] || no "precondition: development link"
+  local_kromi set nord >/dev/null 2>&1
+  local_kromi uninstall -y </dev/null >"$SANDBOX/uninstall-local.out" 2>&1 &&
+    [[ -x $ROOT/bin/kromi && -d $ROOT/apps && ! -e $INSTALL_HOME/.local/bin/kromi && ! -e $INSTALL_HOME/.local/state/kromi ]] &&
+    grep -q "is left in place" "$SANDBOX/uninstall-local.out"
+  check $? "uninstall leaves a checkout the installer did not make"
 fi
 
 echo
