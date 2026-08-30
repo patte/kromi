@@ -664,6 +664,12 @@ load_fetcher() {
   source "$KROMI_PATH/lib/wallpaper-fetch.sh"
 }
 
+# Likewise the one that reaches for root.
+load_firefox_live() {
+  # shellcheck disable=SC1091
+  source "$KROMI_PATH/lib/firefox-live.sh"
+}
+
 cmd_wallpaper() {
   local action=${1:-show}
   [[ $# -gt 0 ]] && shift
@@ -850,10 +856,40 @@ cmd_setup() {
       printf 'Linking adds one include line to each config; %s: a few settings edited in place.\n' \
         "$(IFS=,; printf '%s' "${in_place[*]}" | sed 's/,/, /g')"
     fi
-    if ask "Link them to kromi's generated files? (kromi unlink undoes it)" y; then
+    printf 'kromi can add one line to each of their configs so they read the theme — the README\n'
+    printf 'section "What link edits" lists every change. kromi unlink takes them out again.\n'
+    if ask "Edit those configs?" y; then
       cmd_link "${apps[@]}"
     else
       printf 'Not linked. Wire them by hand, or run kromi link later.\n'
+    fi
+  fi
+
+  # The one thing that reaches outside your home directory, and the one
+  # question here that may ask for a password. Offered only where it applies:
+  # firefox installed, loader not in.
+  local live=0
+  if [[ " ${apps[*]} " == *" firefox "* ]]; then
+    if "$KROMI_BIN" firefox-live installed 2>/dev/null; then
+      live=1
+      printf 'Firefox: the live loader is installed, so open windows follow a switch.\n'
+    else
+      printf 'Firefox reads its stylesheets once, at startup, so a linked profile shows a switch\n'
+      printf 'at its next start. A loader beside its program files recolours open windows\n'
+      printf 'instead. Installing it needs root, and a Firefox update removes it again.\n'
+      if ask "Install the Firefox live loader, with sudo?" n; then
+        # The two do not compose: a sheet a profile imports is loaded first
+        # and pins the palette Firefox opened with.
+        app_run firefox unlink 2>/dev/null || true
+        load_firefox_live
+        # A subshell: the installer dies on its own errors, and one of those
+        # is not a reason to abandon the rest of setup.
+        if (cmd_install); then
+          live=1
+        else
+          warn "the loader did not install; firefox stays as it was"
+        fi
+      fi
     fi
   fi
 
@@ -909,6 +945,13 @@ cmd_setup() {
   done
   printf '\n'
   ((${#linked[@]})) && printf 'Linked: %s\n' "${linked[*]}"
+  if ((live)); then
+    # Themed, by the other arrangement: not a link that failed.
+    local -a rest=()
+    for app in "${unlinked[@]}"; do [[ $app == firefox ]] || rest+=("$app"); done
+    unlinked=("${rest[@]}")
+    printf 'Firefox: live loader (restart it once)\n'
+  fi
   ((${#unlinked[@]})) && printf 'Not linked: %s\n' "${unlinked[*]}"
 
   # Nobody named this theme; it is the one to start from, not the one chosen.
@@ -962,8 +1005,7 @@ main() {
     link) cmd_link "$@" ;;
     unlink) cmd_unlink "$@" ;;
     firefox-live)
-      # shellcheck disable=SC1091
-      source "$KROMI_PATH/lib/firefox-live.sh"
+      load_firefox_live
       firefox_live_main "$@"
       ;;
     help | -h | --help) cmd_help ;;

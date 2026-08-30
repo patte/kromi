@@ -58,6 +58,8 @@ mkdir -p "$FIXTURE/apps"
 ln -s "$ROOT/themes" "$FIXTURE/themes"
 ln -s "$ROOT/templates" "$FIXTURE/templates"
 ln -s "$ROOT/lib" "$FIXTURE/lib"
+# The loader's source is an app file too, and not a .sh one.
+ln -s "$ROOT/apps/firefox-live.cfg" "$FIXTURE/apps/firefox-live.cfg"
 for app in "$ROOT"/apps/*.sh; do
   name=$(basename "$app")
   if [[ $name == vscode.sh || $name == vlc.sh || $name == firefox.sh ]]; then
@@ -938,6 +940,31 @@ if command -v python3 >/dev/null 2>&1; then
   KROMI_APPS=hyprland pty '\nn\n' "$KROMI" setup >"$SANDBOX/setup-nobrowse.out" 2>&1 || true
   ! grep -q '^kept ' "$SANDBOX/setup-nobrowse.out" && grep -q 'kromi interactive' "$SANDBOX/setup-nobrowse.out"
   check $? "no to the browse ends with the hint instead"
+
+  # Firefox's loader is the one question that reaches outside home. Keys:
+  # edit configs default, loader y; no wallpaper app, theme named, so no more.
+  # The stand-in install directory is writable, so no sudo is involved.
+  KROMI_APPS="hyprland firefox" pty '\ny\n' "$KROMI" setup nord >"$SANDBOX/setup-live.out" 2>&1 || true
+  [[ -f $KROMI_FIREFOX_APP/kromi-live.cfg && -f $KROMI_FIREFOX_APP/defaults/pref/kromi-autoconfig.js ]]
+  check $? "yes to the loader installs it beside the stand-in firefox"
+
+  ! grep -q 'kromi.css' "$profile/chrome/userChrome.css" 2>/dev/null
+  check $? "installing the loader unlinks the profiles first"
+
+  grep -q '^Firefox: live loader' "$SANDBOX/setup-live.out" && ! grep -q '^Not linked' "$SANDBOX/setup-live.out"
+  check $? "the summary shows firefox as themed by the loader, not as unlinked"
+
+  # With the loader in, setup says so and does not ask again.
+  KROMI_APPS="hyprland firefox" pty '\n' "$KROMI" setup nord >"$SANDBOX/setup-live2.out" 2>&1 || true
+  grep -q 'live loader is installed' "$SANDBOX/setup-live2.out" && ! grep -q 'with sudo' "$SANDBOX/setup-live2.out"
+  check $? "setup does not offer a loader that is already in"
+  "$KROMI" firefox-live uninstall >/dev/null 2>&1
+
+  # The default is no, at a terminal and through a pipe alike.
+  KROMI_APPS="hyprland firefox" pty '\n\n' "$KROMI" setup nord >"$SANDBOX/setup-nolive.out" 2>&1 || true
+  [[ ! -e $KROMI_FIREFOX_APP/kromi-live.cfg ]] && grep -q 'kromi.css' "$profile/chrome/userChrome.css"
+  check $? "an empty answer leaves the loader out and the profiles linked"
+  KROMI_APPS="hyprland firefox" "$KROMI" unlink >/dev/null 2>&1
 
   # A theme named on the command line is a choice already made: no browse.
   KROMI_APPS=hyprland pty '\n' "$KROMI" setup nord >"$SANDBOX/setup-named.out" 2>&1 || true
