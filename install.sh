@@ -24,7 +24,8 @@ die() {
 
 command -v git >/dev/null 2>&1 || die "git is required"
 
-# A .git is not proof of kromi: update only a checkout that has the program.
+# A .git is not proof of kromi: update only a checkout that has the program,
+# and link only one that still has it afterwards.
 if [[ -d $DIR/.git ]]; then
   [[ -x $DIR/bin/kromi ]] || die "$DIR is not a kromi checkout (no bin/kromi); set KROMI_DIR"
   git -C "$DIR" pull --ff-only --quiet || die "could not update $DIR; pull it by hand"
@@ -33,9 +34,9 @@ elif [[ -e $DIR ]]; then
   die "$DIR exists and is not a git checkout; move it aside, or set KROMI_DIR"
 else
   git clone --quiet "$REPO" "$DIR" || die "could not clone $REPO"
-  [[ -x $DIR/bin/kromi ]] || die "$REPO is not kromi (no bin/kromi in the clone)"
   printf 'installed %s\n' "$DIR"
 fi
+[[ -x $DIR/bin/kromi ]] || die "$DIR has no bin/kromi after that; not linking it"
 
 # A name on PATH is not ours to take: link over nothing, or over a link that
 # already points into this checkout.
@@ -54,9 +55,13 @@ mkdir -p "$BIN_DIR"
 ln -sfn "$DIR/bin/kromi" "$target"
 printf 'linked %s\n' "$target"
 
+# Name the command the way this shell can actually run it.
 case ":$PATH:" in
-  *":$BIN_DIR:"*) ;;
-  *) printf '\nnote: %s is not on your PATH; add it, or call %s/kromi by path\n' "$BIN_DIR" "$BIN_DIR" ;;
+  *":$BIN_DIR:"*)
+    printf '\nnext: kromi setup\n'
+    ;;
+  *)
+    printf '\nnote: %s is not on your PATH; add it to run kromi by name\n' "$BIN_DIR"
+    printf '\nnext: %s/kromi setup\n' "$BIN_DIR"
+    ;;
 esac
-
-printf '\nnext: kromi setup\n'
