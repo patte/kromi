@@ -316,6 +316,15 @@ check $? "vscode link writes the palette into colorCustomizations"
 [[ $(jq -r '."workbench.colorCustomizations"."notebook.editorBackground"' "$settings") == "#abcdef" ]]
 check $? "vscode link keeps colour keys the user already had"
 
+# A settings.json that will not parse is left alone — and a link that wrote
+# nothing must not be reported as one that did.
+mkdir -p "$SANDBOX/broken/Code/User"
+printf '{ "editor.fontSize": 13, \n' >"$SANDBOX/broken/Code/User/settings.json"
+XDG_CONFIG_HOME="$SANDBOX/broken" XDG_STATE_HOME="$SANDBOX/broken-state" "$KROMI" link vscode >"$SANDBOX/broken.out" 2>&1
+grep -q 'link failed' "$SANDBOX/broken.out" &&
+  ! XDG_CONFIG_HOME="$SANDBOX/broken" XDG_STATE_HOME="$SANDBOX/broken-state" KROMI_APPS=vscode "$KROMI" apps | grep -q linked
+check $? "a vscode link that could not write is not reported as linked"
+
 # vscode is the one app written to on `set`, so it has to follow a switch.
 KROMI_APPS=vscode "$KROMI" set tokyo-night >/dev/null
 [[ $(jq -r '."workbench.colorCustomizations"."editor.background"' "$settings") == "#1a1b26" ]]

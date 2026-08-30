@@ -66,7 +66,9 @@ reload() {
 
 link() {
   # Remember what was there, so unlink can hand it back rather than guess.
+  local fresh=0
   if [[ ! -f $backup ]]; then
+    fresh=1
     mkdir -p "$(dirname "$backup")"
     if [[ -f $settings ]] && command -v jq >/dev/null 2>&1; then
       jq '{"workbench.colorCustomizations": ."workbench.colorCustomizations",
@@ -77,7 +79,12 @@ link() {
       printf '{}\n' >"$backup"
     fi
   fi
-  apply
+  # The backup is the mark that says linked, so a link that wrote nothing
+  # must not leave one behind claiming otherwise.
+  if ! apply; then
+    ((fresh)) && rm -f "$backup"
+    return 1
+  fi
 }
 
 # The backup is the mark: it exists exactly while vscode is linked.
