@@ -740,6 +740,60 @@ check $? "no wallpaper link when there are no images"
 [[ -f $HP ]]
 check $? "the sourced file is written for a theme with no wallpaper"
 
+echo "setup"
+
+# Piped in, setup takes its defaults: link yes, fetch no. hyprpaper is not
+# among the apps here, so the wallpaper step has to say why it did nothing.
+KROMI_APPS="hyprland waybar" "$KROMI" setup nord >"$SANDBOX/setup.out" 2>&1 </dev/null
+check $? "setup runs through without a terminal"
+
+grep -q 'kromi/current' "$XDG_CONFIG_HOME/hypr/hyprland.lua" &&
+  grep -q 'kromi/current' "$XDG_CONFIG_HOME/waybar/style.css"
+check $? "setup links the detected apps by default"
+
+grep -qx 'Wallpaper skipped: hyprpaper is not installed' "$SANDBOX/setup.out"
+check $? "setup says so when nothing is there to show a wallpaper"
+KROMI_APPS="hyprland waybar" "$KROMI" unlink >/dev/null
+
+# With hyprpaper there and pictures for the theme, it reports the one chosen.
+KROMI_APPS=hyprpaper "$KROMI" setup nord >"$SANDBOX/setup.out" 2>&1 </dev/null
+grep -q "^Wallpaper: $BG/nord/1-first.jpg$" "$SANDBOX/setup.out"
+check $? "setup names the wallpaper when the theme has one"
+
+# And with none, it offers to fetch, and does not without a yes.
+KROMI_APPS=hyprpaper "$KROMI" setup gruvbox >"$SANDBOX/setup.out" 2>&1 </dev/null
+grep -q '^No wallpaper for gruvbox' "$SANDBOX/setup.out" && grep -q 'kromi wallpaper fetch' "$SANDBOX/setup.out"
+check $? "setup points at the fetch when a theme has no wallpaper"
+
+[[ ! -d $BG/gruvbox ]]
+check $? "setup does not fetch unless told to"
+
+grep -q '^source = .*kromi/current/hyprpaper.conf$' "$XDG_CONFIG_HOME/hypr/hyprpaper.conf"
+check $? "setup links hyprpaper even before there is a wallpaper"
+KROMI_APPS=hyprpaper "$KROMI" unlink >/dev/null
+
+# Without a theme named, setup keeps the one already set.
+[[ $("$KROMI" current) == gruvbox ]]
+check $? "setup leaves the theme where it was when none is named"
+
+# link used to refuse until set had run; a fresh install now starts on the
+# default rather than being sent away to run another command first.
+XDG_STATE_HOME="$SANDBOX/state-fresh" KROMI_APPS=probe "$KROMI" link >/dev/null 2>&1
+[[ $(XDG_STATE_HOME="$SANDBOX/state-fresh" "$KROMI" current) == tokyo-night ]]
+check $? "link on a fresh install renders the default theme first"
+
+if command -v python3 >/dev/null 2>&1; then
+  # A no at the prompt has to be a no: nothing linked, and told so.
+  KROMI_APPS=hyprland pty 'n\n' "$KROMI" setup nord >"$SANDBOX/setup-no.out" 2>&1 || true
+  ! grep -q 'kromi/current' "$XDG_CONFIG_HOME/hypr/hyprland.lua" && grep -q 'Not linked' "$SANDBOX/setup-no.out"
+  check $? "setup at a terminal takes no for an answer"
+
+  KROMI_APPS=hyprland pty '\n' "$KROMI" setup nord >"$SANDBOX/setup-yes.out" 2>&1 || true
+  grep -q 'kromi/current' "$XDG_CONFIG_HOME/hypr/hyprland.lua"
+  check $? "an empty answer takes the default, which links"
+  KROMI_APPS=hyprland "$KROMI" unlink >/dev/null
+fi
+
 echo "wallpaper fetch"
 
 # Point the fetcher at a local repo, so this stays offline.

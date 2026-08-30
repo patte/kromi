@@ -10,6 +10,9 @@ KROMI_STATE="${XDG_STATE_HOME:-$HOME/.local/state}/kromi"
 
 CURRENT="$KROMI_STATE/current"
 NEXT="$KROMI_STATE/next"
+
+# What a fresh install starts on when nothing was asked for.
+DEFAULT_THEME=tokyo-night
 LOCK="${XDG_RUNTIME_DIR:-/tmp}/kromi.lock"
 
 # May set KROMI_APPS to override detection.
@@ -681,7 +684,9 @@ cmd_apps() {
 cmd_link() {
   local apps=("$@")
   [[ ${#apps[@]} -gt 0 ]] || mapfile -t apps < <(enabled_apps)
-  [[ -f $CURRENT/.name ]] || die "run 'kromi set <theme>' first"
+  # A link points at generated files, so there have to be some. Rather than
+  # send someone off to run set first, start them on the default.
+  [[ -f $CURRENT/.name ]] || cmd_set "$DEFAULT_THEME"
   local app
   for app in "${apps[@]}"; do
     app_run "$app" link && printf 'linked %s\n' "$app" || warn "$app: link failed"
@@ -697,10 +702,85 @@ cmd_unlink() {
   done
 }
 
+# A yes/no question with a default, which is also the answer when nobody is
+# there to ask: setup piped from a script takes the safe path through.
+ask() {
+  local question=$1 default=$2 hint answer
+  if [[ ! -t 0 ]]; then
+    [[ $default == y ]]
+    return
+  fi
+  if [[ $default == y ]]; then hint='[Y/n]'; else hint='[y/N]'; fi
+  read -rp "$question $hint " answer
+  answer=${answer:-$default}
+  [[ $answer =~ ^[Yy] ]]
+}
+
+# The apps that show a wallpaper rather than a palette — hyprpaper, and
+# whatever else says uses_wallpaper — among those that are installed.
+wallpaper_apps() {
+  local app
+  for app in $(list_apps); do
+    [[ $(app_run "$app" _uses_wallpaper) == 1 ]] && printf '%s\n' "$app"
+  done
+  return 0
+}
+
+# The whole first run in one place: a theme, the apps found, the question of
+# whether to link them, and a wallpaper if something is there to show one.
+# Every step is one of the plain commands, so nothing here is the only way.
+cmd_setup() {
+  local theme=${1:-}
+  [[ -n $theme ]] || theme=$(cat "$CURRENT/.name" 2>/dev/null || printf '%s' "$DEFAULT_THEME")
+  cmd_set "$theme"
+  theme=$(cat "$CURRENT/.name")
+
+  local -a apps
+  mapfile -t apps < <(enabled_apps)
+  if ((${#apps[@]} == 0)); then
+    printf 'No supported apps detected; nothing to link.\n'
+  else
+    printf 'Detected: %s\n' "${apps[*]}"
+    if ask "Link them to kromi's generated files? (kromi unlink undoes it)" y; then
+      cmd_link "${apps[@]}"
+    else
+      printf 'Not linked. Wire them by hand, or run kromi link later.\n'
+    fi
+  fi
+
+  local -a showers=() installed=()
+  mapfile -t showers < <(wallpaper_apps)
+  local app
+  for app in "${showers[@]}"; do
+    [[ " ${apps[*]} " == *" $app "* ]] && installed+=("$app")
+  done
+
+  if ((${#installed[@]} == 0)); then
+    printf 'Wallpaper skipped: %s is not installed\n' "${showers[*]:-no wallpaper app}"
+  elif has_wallpaper "$theme"; then
+    printf 'Wallpaper: %s\n' "$(readlink "$CURRENT/wallpaper")"
+  else
+    printf 'No wallpaper for %s yet.\n' "$theme"
+    if ask "Fetch wallpaper sets from Omarchy? (needs git; the pictures are theirs to license, yours to look at)" n; then
+      cmd_wallpaper fetch
+      # Now that there is one to point at, and so the daemon shows it.
+      cmd_set "$theme" >/dev/null
+      [[ -L $CURRENT/wallpaper ]] && printf 'Wallpaper: %s\n' "$(readlink "$CURRENT/wallpaper")"
+    else
+      printf 'Skipped. Later: kromi wallpaper fetch, or drop pictures in %s/wallpapers/%s/\n' \
+        "$(tilde "$KROMI_CONFIG")" "$theme"
+    fi
+  fi
+
+  printf '\nDone. Switch any time with kromi set <theme>, or browse with kromi interactive.\n'
+}
+
 cmd_help() {
   cat <<'USAGE'
 kromi — apply one colour palette across a desktop's apps.
 
+  kromi setup [theme]    first run: set a theme, link detected apps, and
+                         offer wallpapers — asking before each step
   kromi set <theme>      render the palette and reload running apps
   kromi list             list themes, marking the current one
   kromi interactive      list themes, then browse them: n/p step, a auto,
@@ -717,9 +797,9 @@ kromi — apply one colour palette across a desktop's apps.
   kromi firefox-live     recolour an open Firefox on every set; needs root,
     [install|uninstall]  see 'kromi firefox-live help'
 
-`set` only ever writes inside kromi's own state directory. `link` is the
-only command that touches your app configs; skip it if you manage those
-yourself, and add the import lines shown in the README instead.
+`set` only ever writes inside kromi's own state directory. `link` (and
+`setup`, which asks first) is what touches your app configs; skip it if you
+manage those yourself, and add the import lines from docs/integrations.md.
 USAGE
 }
 
@@ -727,6 +807,7 @@ main() {
   local cmd=${1:-help}
   [[ $# -gt 0 ]] && shift
   case $cmd in
+    setup) cmd_setup "$@" ;;
     set) cmd_set "$@" ;;
     list) cmd_list ;;
     current) cmd_current ;;
