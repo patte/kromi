@@ -203,7 +203,8 @@ switch therefore appears after Firefox restarts.
 `kromi unlink firefox` removes the imports and symlinks and restores the saved
 website-appearance preference. Firefox copies `user.js` into `prefs.js` at
 startup, so the last appearance value may remain until you change it in
-Firefox's settings.
+Firefox's settings. If the live loader is installed, it also offers to remove
+that (root is needed); decline to keep live switching.
 
 ### Live switching
 

@@ -190,11 +190,17 @@ linked() {
   return 1
 }
 
+# Undoes link, and offers to take the live loader out with it: to most people
+# unlink is the uninstall, and a loader left behind keeps recolouring windows
+# after everything else is gone. Offered rather than done, because it needs
+# root, and because `kromi firefox-live status` sends someone here to clear a
+# conflicting profile while keeping the loader.
 unlink() {
-  local profile name
+  local profile name found=0
   while read -r profile; do
     name=$(basename "$profile")
     [[ -f $marks/$name ]] || continue
+    found=1
 
     drop_line "$profile/chrome/userChrome.css" "$chrome_import"
     drop_line "$profile/chrome/userContent.css" "$content_import"
@@ -214,4 +220,20 @@ unlink() {
     rm -f "$marks/$name"
   done < <(profiles)
   rmdir "$marks" 2>/dev/null || true
+
+  if live_installed; then
+    if ask "Also remove Firefox live switching? (needs root)" y; then
+      # Checked by hand: `app_run x unlink && ...` in the caller switches
+      # errexit off in here, so a failed sudo would otherwise pass as done.
+      "$KROMI_BIN" firefox-live uninstall || return 1
+    else
+      warn "Firefox live switching is still installed; 'kromi firefox-live uninstall' removes it"
+    fi
+    found=1
+  fi
+
+  ((found)) || {
+    warn "Firefox was not linked"
+    return 1
+  }
 }
