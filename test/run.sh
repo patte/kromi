@@ -41,7 +41,8 @@ distance() {
   b=$(luma_of "$2")
   if ((a > b)); then printf '%d\n' $((a - b)); else printf '%d\n' $((b - a)); fi
 }
-palette_value() { sed -n "s/^$2 = \"\(#[0-9a-fA-F]*\)\"/\1/p" "$1"; }
+# Any spacing around the =: lumon aligns its values in columns.
+palette_value() { sed -n "s/^$2 *= *\"\(#[0-9a-fA-F]*\)\"/\1/p" "$1"; }
 
 # Shipped themes and templates as they are, but app definitions with their
 # reloads stripped: this suite must never signal the live session.
@@ -920,8 +921,22 @@ fetch nord gruvbox >"$SANDBOX/fetch.out" 2>&1
 [[ -f $DEST/nord/a.jpg && -f $DEST/nord/b.jpg && -f $DEST/gruvbox/c.jpg ]]
 check $? "wallpapers are fetched into the user's wallpapers dir"
 
-[[ $("$KROMI" wallpaper) == "$DEST/gruvbox/c.jpg" ]] && grep -q '^now showing c.jpg$' "$SANDBOX/fetch.out"
-check $? "a fetch for the theme on screen puts its wallpaper up at once"
+[[ $("$KROMI" wallpaper) == "$DEST/gruvbox/c.jpg" ]] && grep -q '^selected c.jpg for gruvbox$' "$SANDBOX/fetch.out"
+check $? "a fetch for the theme on screen selects its wallpaper at once"
+
+# Setup's fetch, accepted, is for the one theme it is configuring — not the
+# collection. A terminal is needed to say yes: the link question takes its
+# default, the fetch question gets a y, and the daemon question its default.
+if command -v python3 >/dev/null 2>&1; then
+  rm -rf "$DEST"
+  KROMI_APPS=hyprpaper KROMI_PATH=$ROOT pty '\ny\n\n' "$KROMI" setup nord >"$SANDBOX/setup-fetch.out" 2>&1 || true
+  [[ -f $DEST/nord/a.jpg && ! -e $DEST/gruvbox ]]
+  check $? "setup fetches wallpapers for its theme only"
+
+  grep -q "^Wallpaper: $DEST/nord/a.jpg" "$SANDBOX/setup-fetch.out"
+  check $? "setup shows the wallpaper it fetched"
+  KROMI_APPS=hyprpaper "$KROMI" unlink >/dev/null
+fi
 
 KROMI_PATH=$ROOT "$KROMI" wallpaper list >"$SANDBOX/wl.txt" 2>&1
 grep -q '^nord *2$' "$SANDBOX/wl.txt" && grep -q '^gruvbox *1$' "$SANDBOX/wl.txt"
@@ -964,7 +979,7 @@ else
 
   HOME=$INSTALL_HOME KROMI_REPO=$ROOT PATH="/usr/bin:/bin" \
     bash "$ROOT/install.sh" >"$SANDBOX/install2.out" 2>&1
-  grep -q '^updated ' "$SANDBOX/install2.out" && grep -q 'not on your PATH' "$SANDBOX/install2.out"
+  grep -q '^updated ' "$SANDBOX/install2.out" && grep -q 'not on your PATH' "$SANDBOX/install2.out" && grep -q "^next: $INSTALL_HOME/.local/bin/kromi setup$" "$SANDBOX/install2.out"
   check $? "a second run updates in place and notices a PATH without ~/.local/bin"
 
   # A kromi of somebody else's on PATH is not ours to replace.

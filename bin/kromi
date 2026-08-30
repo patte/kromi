@@ -671,7 +671,7 @@ cmd_wallpaper() {
       theme=$(cat "$CURRENT/.name" 2>/dev/null || true)
       if [[ -n $theme && ! -L $CURRENT/wallpaper ]] && has_wallpaper "$theme"; then
         cmd_set "$theme" >/dev/null
-        printf 'now showing %s\n' "$(basename "$(readlink "$CURRENT/wallpaper")")"
+        printf 'selected %s for %s\n' "$(basename "$(readlink "$CURRENT/wallpaper")")" "$theme"
       fi
       return
       ;;
@@ -848,15 +848,19 @@ cmd_setup() {
     setup_wallpaper_daemons "${installed[@]}"
   else
     printf 'No wallpaper for %s yet.\n' "$theme"
-    if ask "Fetch wallpaper sets from Omarchy? (needs git; the pictures are theirs to license, yours to look at)" n; then
-      cmd_wallpaper fetch
+    # This theme's, not every theme's: setup is configuring one, and the
+    # whole collection is a large download of other people's artwork that
+    # nobody asked for. `kromi wallpaper fetch` with no theme is the way to
+    # get all of them, and the closing hint names it.
+    if ask "Fetch $theme's wallpapers from Omarchy? (needs git; the pictures are theirs to license, yours to look at)" n; then
+      cmd_wallpaper fetch "$theme"
       if [[ -L $CURRENT/wallpaper ]]; then
         printf 'Wallpaper: %s\n' "$(readlink "$CURRENT/wallpaper")"
         setup_wallpaper_daemons "${installed[@]}"
       fi
     else
-      printf 'Skipped. Later: kromi wallpaper fetch, or drop pictures in %s/wallpapers/%s/\n' \
-        "$(tilde "$KROMI_CONFIG")" "$theme"
+      printf 'Skipped. Later: kromi wallpaper fetch %s (or every theme, with no name), or drop pictures in %s/wallpapers/%s/\n' \
+        "$theme" "$(tilde "$KROMI_CONFIG")" "$theme"
     fi
   fi
 
