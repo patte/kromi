@@ -10,7 +10,7 @@ detect() { command -v hyprpaper >/dev/null 2>&1; }
 
 # Config for a cold start, IPC for a warm one: hyprpaper reads its config once,
 # at startup, so a daemon already running has to be told. That split is why a
-# login needs nothing of narchy's — hyprpaper puts the wallpaper back itself.
+# login needs nothing of kromi's — hyprpaper puts the wallpaper back itself.
 #
 # hyprpaper caches by path and the symlink's path never changes, so unload
 # first or it keeps showing the image that link used to point at. The resolved
@@ -33,7 +33,7 @@ link() {
   local sourced
   sourced=$(theme_file hyprpaper.conf)
   [[ -f $sourced ]] || {
-    warn "no $sourced to source; run 'narchy set <theme>' first"
+    warn "no $sourced to source; run 'kromi set <theme>' first"
     return 1
   }
   prepend_line "$config" "$include"

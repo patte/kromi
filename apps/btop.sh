@@ -8,11 +8,11 @@ reload() { signal_reload btop; }
 # rather than adding an import.
 link() {
   mkdir -p "$config_dir/themes"
-  ln -snf "$(theme_file btop.theme)" "$config_dir/themes/narchy.theme"
-  set_kv "$config_dir/btop.conf" color_theme '"narchy"'
+  ln -snf "$(theme_file btop.theme)" "$config_dir/themes/kromi.theme"
+  set_kv "$config_dir/btop.conf" color_theme '"kromi"'
 }
 
 unlink() {
-  rm -f "$config_dir/themes/narchy.theme"
+  rm -f "$config_dir/themes/kromi.theme"
   set_kv "$config_dir/btop.conf" color_theme '"Default"'
 }

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)
-NARCHY="$ROOT/bin/narchy"
+KROMI="$ROOT/bin/kromi"
 
 SANDBOX=$(mktemp -d)
 trap 'rm -rf "$SANDBOX"' EXIT
@@ -29,7 +29,7 @@ no() {
 }
 check() { if [[ $1 == 0 ]]; then ok "$2"; else no "$2"; fi; }
 
-# Rec. 601 luma, as narchy computes it, so the dim_text property can be
+# Rec. 601 luma, as kromi computes it, so the dim_text property can be
 # checked without recomputing which colour it picked.
 luma_of() {
   local h=${1#\#}
@@ -62,27 +62,27 @@ for app in "$ROOT"/apps/*.sh; do
     } >"$FIXTURE/apps/$name"
   fi
 done
-export NARCHY_PATH="$FIXTURE"
+export KROMI_PATH="$FIXTURE"
 
 # A stand-in app that renders every template and touches nothing.
-mkdir -p "$XDG_CONFIG_HOME/narchy/apps" "$XDG_CONFIG_HOME/narchy/templates"
-cat >"$XDG_CONFIG_HOME/narchy/apps/dummy.sh" <<'EOF'
+mkdir -p "$XDG_CONFIG_HOME/kromi/apps" "$XDG_CONFIG_HOME/kromi/templates"
+cat >"$XDG_CONFIG_HOME/kromi/apps/dummy.sh" <<'EOF'
 templates="palette.css waybar.css wofi.css mako.ini ghostty.conf btop.theme hyprland.lua hyprland.conf"
 detect() { true; }
 reload() { :; }
 EOF
 
-cat >"$XDG_CONFIG_HOME/narchy/apps/probe.sh" <<'EOF'
+cat >"$XDG_CONFIG_HOME/kromi/apps/probe.sh" <<'EOF'
 templates="probe.conf"
 detect() { true; }
 reload() { :; }
 EOF
 
 printf 'a={{ background_rgb }} b={{ background_strip }} mode={{ mode }} title={{ mode_title }} dim={{ dim_text }}\n' \
-  >"$XDG_CONFIG_HOME/narchy/templates/probe.conf.tpl"
+  >"$XDG_CONFIG_HOME/kromi/templates/probe.conf.tpl"
 
 # Sorts last, so it catches a failed detection ending the whole run.
-cat >"$XDG_CONFIG_HOME/narchy/apps/zz-absent.sh" <<'EOF'
+cat >"$XDG_CONFIG_HOME/kromi/apps/zz-absent.sh" <<'EOF'
 templates="probe.conf"
 detect() { false; }
 reload() { :; }
@@ -103,18 +103,18 @@ collided=""
 faint=""
 for theme_dir in "$ROOT"/themes/*/; do
   theme=$(basename "$theme_dir")
-  NARCHY_APPS=dummy "$NARCHY" set "$theme" >/dev/null
-  if grep -rq '{{' "$XDG_STATE_HOME/narchy/current/"; then
+  KROMI_APPS=dummy "$KROMI" set "$theme" >/dev/null
+  if grep -rq '{{' "$XDG_STATE_HOME/kromi/current/"; then
     unresolved="$unresolved $theme"
   fi
-  gen="$XDG_STATE_HOME/narchy/current/vscode.json"
+  gen="$XDG_STATE_HOME/kromi/current/vscode.json"
   surface=$(jq -r '."workbench.colorCustomizations"."list.hoverBackground"' "$gen")
   dim=$(jq -r '."workbench.colorCustomizations"."breadcrumb.foreground"' "$gen")
   if [[ $surface == "$dim" ]]; then
     collided="$collided vscode/$theme"
   fi
 
-  nvim_theme="$XDG_STATE_HOME/narchy/current/neovim.lua"
+  nvim_theme="$XDG_STATE_HOME/kromi/current/neovim.lua"
   surface=$(sed -n 's/.*surface = "\(#[0-9a-fA-F]*\)".*/\1/p' "$nvim_theme")
   dim=$(sed -n 's/.*muted = "\(#[0-9a-fA-F]*\)".*/\1/p' "$nvim_theme")
   if [[ $surface == "$dim" ]]; then
@@ -124,7 +124,7 @@ for theme_dir in "$ROOT"/themes/*/; do
   # dim_text has to clear the floor, or match the furthest candidate from the
   # background when the palette has nothing that does.
   bg=$(palette_value "$theme_dir/colors.toml" background)
-  chosen=$(sed -n 's/.*dim=\(#[0-9a-fA-F]*\).*/\1/p' "$XDG_STATE_HOME/narchy/current/probe.conf")
+  chosen=$(sed -n 's/.*dim=\(#[0-9a-fA-F]*\).*/\1/p' "$XDG_STATE_HOME/kromi/current/probe.conf")
   best=0
   for name in dark_foreground muted color8; do
     d=$(distance "$(palette_value "$theme_dir/colors.toml" "$name")" "$bg")
@@ -148,52 +148,52 @@ check $? "dim text stands off the background as far as the palette allows"
 
 # The names past the 16 slots are not derivable, so a palette written by hand
 # may well omit them. Every template still has to render.
-mkdir -p "$XDG_CONFIG_HOME/narchy/themes/plain"
+mkdir -p "$XDG_CONFIG_HOME/kromi/themes/plain"
 {
   printf '%s\n' 'accent = "#7aa2f7"' 'cursor = "#c0caf5"' 'foreground = "#a9b1d6"' \
     'background = "#1a1b26"' 'selection_foreground = "#c0caf5"' 'selection_background = "#7aa2f7"'
   for i in $(seq 0 15); do printf 'color%d = "#1a1b26"\n' "$i"; done
-} >"$XDG_CONFIG_HOME/narchy/themes/plain/colors.toml"
-NARCHY_APPS=dummy "$NARCHY" set plain >/dev/null
-! grep -rq '{{' "$XDG_STATE_HOME/narchy/current/"
+} >"$XDG_CONFIG_HOME/kromi/themes/plain/colors.toml"
+KROMI_APPS=dummy "$KROMI" set plain >/dev/null
+! grep -rq '{{' "$XDG_STATE_HOME/kromi/current/"
 check $? "a palette naming only the 16 slots still renders everything"
 
-NARCHY_APPS=dummy "$NARCHY" set tokyo-night >/dev/null
-[[ $("$NARCHY" current) == tokyo-night ]]
+KROMI_APPS=dummy "$KROMI" set tokyo-night >/dev/null
+[[ $("$KROMI" current) == tokyo-night ]]
 check $? "current reports the theme just set"
 
-grep -q '#1a1b26' "$XDG_STATE_HOME/narchy/current/waybar.css"
+grep -q '#1a1b26' "$XDG_STATE_HOME/kromi/current/waybar.css"
 check $? "palette values reach the generated css"
 
 # Detection runs over the real app definitions here, not the dummy.
-"$NARCHY" set nord >/dev/null 2>&1
+"$KROMI" set nord >/dev/null 2>&1
 check $? "set succeeds when an app is undetected"
 
 # Narrowing the app list must not delete files other configs still import;
 # a missing @import target stops waybar starting at all.
-NARCHY_APPS=probe "$NARCHY" set nord >/dev/null
-[[ -f $XDG_STATE_HOME/narchy/current/palette.css && -f $XDG_STATE_HOME/narchy/current/waybar.css ]]
-check $? "narrowing NARCHY_APPS still renders every app's files"
+KROMI_APPS=probe "$KROMI" set nord >/dev/null
+[[ -f $XDG_STATE_HOME/kromi/current/palette.css && -f $XDG_STATE_HOME/kromi/current/waybar.css ]]
+check $? "narrowing KROMI_APPS still renders every app's files"
 
 # The _rgb and _strip forms are the two derived substitutions templates rely on.
-NARCHY_APPS=probe "$NARCHY" set tokyo-night >/dev/null
-grep -q 'a=26,27,38 b=1a1b26 mode=dark title=Dark dim=#' "$XDG_STATE_HOME/narchy/current/probe.conf"
+KROMI_APPS=probe "$KROMI" set tokyo-night >/dev/null
+grep -q 'a=26,27,38 b=1a1b26 mode=dark title=Dark dim=#' "$XDG_STATE_HOME/kromi/current/probe.conf"
 check $? "derived _rgb, _strip and mode substitutions"
 
-NARCHY_APPS=probe "$NARCHY" set white >/dev/null
-grep -q 'mode=light title=Light' "$XDG_STATE_HOME/narchy/current/probe.conf"
+KROMI_APPS=probe "$KROMI" set white >/dev/null
+grep -q 'mode=light title=Light' "$XDG_STATE_HOME/kromi/current/probe.conf"
 check $? "mode follows background luminance"
 
 # A theme shipping its own file must win over the template.
-mkdir -p "$XDG_CONFIG_HOME/narchy/themes/custom"
-cp "$ROOT/themes/nord/colors.toml" "$XDG_CONFIG_HOME/narchy/themes/custom/"
-echo "/* handwritten */" >"$XDG_CONFIG_HOME/narchy/themes/custom/waybar.css"
-NARCHY_APPS=dummy "$NARCHY" set custom >/dev/null
-grep -q 'handwritten' "$XDG_STATE_HOME/narchy/current/waybar.css"
+mkdir -p "$XDG_CONFIG_HOME/kromi/themes/custom"
+cp "$ROOT/themes/nord/colors.toml" "$XDG_CONFIG_HOME/kromi/themes/custom/"
+echo "/* handwritten */" >"$XDG_CONFIG_HOME/kromi/themes/custom/waybar.css"
+KROMI_APPS=dummy "$KROMI" set custom >/dev/null
+grep -q 'handwritten' "$XDG_STATE_HOME/kromi/current/waybar.css"
 check $? "theme-shipped file overrides the template"
 
 # User themes dir is searched, so custom themes show up in the listing.
-"$NARCHY" list >"$SANDBOX/list.txt"
+"$KROMI" list >"$SANDBOX/list.txt"
 grep -q 'Custom' "$SANDBOX/list.txt"
 check $? "user themes appear in list"
 
@@ -202,7 +202,7 @@ check $? "list marks the current theme"
 
 echo "linking"
 
-NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
+KROMI_APPS=dummy "$KROMI" set nord >/dev/null
 
 # Seed configs the way a real system would have them.
 mkdir -p "$XDG_CONFIG_HOME/hypr" "$XDG_CONFIG_HOME/waybar" "$XDG_CONFIG_HOME/Code/User"
@@ -256,19 +256,19 @@ cp -r "$XDG_CONFIG_HOME" "$SANDBOX/config.before"
 cp -r "$HOME/.mozilla" "$SANDBOX/mozilla.before"
 
 apps="hyprland hyprpaper waybar wofi mako ghostty btop neovim vscode vlc firefox"
-"$NARCHY" link $apps >/dev/null
-"$NARCHY" link $apps >/dev/null
+"$KROMI" link $apps >/dev/null
+"$KROMI" link $apps >/dev/null
 
-[[ $(grep -c 'narchy/current' "$XDG_CONFIG_HOME/hypr/hyprland.lua") == 1 ]]
+[[ $(grep -c 'kromi/current' "$XDG_CONFIG_HOME/hypr/hyprland.lua") == 1 ]]
 check $? "link is idempotent (hyprland)"
 
-[[ $(grep -c 'narchy/current' "$XDG_CONFIG_HOME/waybar/style.css") == 2 ]]
+[[ $(grep -c 'kromi/current' "$XDG_CONFIG_HOME/waybar/style.css") == 2 ]]
 check $? "link adds palette and theme imports (waybar)"
 
-# hyprpaper has no config of its own until narchy writes one, and sourcing a
+# hyprpaper has no config of its own until kromi writes one, and sourcing a
 # file that is not there is the one error it refuses to start on.
-[[ $(grep -c '^source = .*narchy/current/hyprpaper.conf$' "$XDG_CONFIG_HOME/hypr/hyprpaper.conf") == 1 ]]
-check $? "link sources narchy's file (hyprpaper)"
+[[ $(grep -c '^source = .*kromi/current/hyprpaper.conf$' "$XDG_CONFIG_HOME/hypr/hyprpaper.conf") == 1 ]]
+check $? "link sources kromi's file (hyprpaper)"
 
 head -1 "$XDG_CONFIG_HOME/waybar/style.css" | grep -q 'palette.css'
 check $? "palette import comes first, where css needs it"
@@ -276,7 +276,7 @@ check $? "palette import comes first, where css needs it"
 tail -1 "$XDG_CONFIG_HOME/waybar/style.css" | grep -q 'waybar.css'
 check $? "theme import comes last, so it overrides"
 
-[[ -L $XDG_CONFIG_HOME/btop/themes/narchy.theme ]]
+[[ -L $XDG_CONFIG_HOME/btop/themes/kromi.theme ]]
 check $? "btop theme is symlinked into its themes dir"
 
 settings="$XDG_CONFIG_HOME/Code/User/settings.json"
@@ -291,7 +291,7 @@ check $? "vscode link writes the palette into colorCustomizations"
 check $? "vscode link keeps colour keys the user already had"
 
 # vscode is the one app written to on `set`, so it has to follow a switch.
-NARCHY_APPS=vscode "$NARCHY" set tokyo-night >/dev/null
+KROMI_APPS=vscode "$KROMI" set tokyo-night >/dev/null
 [[ $(jq -r '."workbench.colorCustomizations"."editor.background"' "$settings") == "#1a1b26" ]]
 check $? "vscode follows a theme switch"
 
@@ -315,11 +315,11 @@ check $? "vscode names every surface that follows the editor background"
 [[ $(jq -r '."workbench.colorTheme"' "$settings") == "Default Dark Modern" ]]
 check $? "vscode gets a dark base theme for a dark palette"
 
-NARCHY_APPS=vscode "$NARCHY" set catppuccin-latte >/dev/null
+KROMI_APPS=vscode "$KROMI" set catppuccin-latte >/dev/null
 [[ $(jq -r '."workbench.colorTheme"' "$settings") == "Default Light Modern" ]]
 check $? "vscode gets a light base theme for a light palette"
 
-NARCHY_APPS=vscode "$NARCHY" set tokyo-night >/dev/null
+KROMI_APPS=vscode "$KROMI" set tokyo-night >/dev/null
 
 vlcrc="$XDG_CONFIG_HOME/vlc/vlcrc"
 section_of() { awk '/^\[/ { s = $1 } /^qt-dark-palette=/ { print s; exit }' "$1"; }
@@ -333,30 +333,30 @@ check $? "the key is rewritten where it stood, under [qt]"
 [[ $(grep -c 'qt-dark-palette' "$vlcrc") == 1 ]]
 check $? "the commented default is replaced, not doubled"
 
-NARCHY_APPS=vlc "$NARCHY" set catppuccin-latte >/dev/null
+KROMI_APPS=vlc "$KROMI" set catppuccin-latte >/dev/null
 grep -qx 'qt-dark-palette=0' "$vlcrc"
 check $? "vlc turns it off again for a light palette"
 
-NARCHY_APPS=vlc "$NARCHY" set tokyo-night >/dev/null
+KROMI_APPS=vlc "$KROMI" set tokyo-night >/dev/null
 
 user_chrome="$profile/chrome/userChrome.css"
 
-[[ $(grep -c '@import url("narchy.css");' "$user_chrome") == 1 ]]
+[[ $(grep -c '@import url("kromi.css");' "$user_chrome") == 1 ]]
 check $? "link is idempotent (firefox)"
 
-head -1 "$user_chrome" | grep -qx '@import url("narchy.css");'
+head -1 "$user_chrome" | grep -qx '@import url("kromi.css");'
 check $? "the import goes above the rules already in userChrome.css"
 
-grep -qx '@import url("narchy-content.css");' "$profile/chrome/userContent.css"
+grep -qx '@import url("kromi-content.css");' "$profile/chrome/userContent.css"
 check $? "link imports the about: sheet as well (firefox)"
 
-grep -qx '@import url("narchy.css");' "$legacy_profile/chrome/userChrome.css"
+grep -qx '@import url("kromi.css");' "$legacy_profile/chrome/userChrome.css"
 check $? "link reaches profiles in the old root as well as the XDG one"
 
 # The sheets are reached through the profile rather than named where they lie:
 # the process that loads userContent.css may not read outside the profile.
-[[ $(readlink "$profile/chrome/narchy.css") == "$XDG_STATE_HOME/narchy/current/firefox.css" ]] &&
-  [[ $(readlink "$profile/chrome/narchy-content.css") == "$XDG_STATE_HOME/narchy/current/firefox-content.css" ]]
+[[ $(readlink "$profile/chrome/kromi.css") == "$XDG_STATE_HOME/kromi/current/firefox.css" ]] &&
+  [[ $(readlink "$profile/chrome/kromi-content.css") == "$XDG_STATE_HOME/kromi/current/firefox-content.css" ]]
 check $? "both sheets are symlinked into the profile's chrome dir"
 
 grep -qx 'user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);' "$profile/user.js"
@@ -365,7 +365,7 @@ check $? "link turns on the pref that makes firefox read them"
 grep -qx 'user_pref("layout.css.prefers-color-scheme.content-override", 0);' "$profile/user.js"
 check $? "firefox hands websites a dark palette's dark"
 
-NARCHY_APPS=firefox "$NARCHY" set catppuccin-latte >/dev/null 2>&1
+KROMI_APPS=firefox "$KROMI" set catppuccin-latte >/dev/null 2>&1
 grep -qx 'user_pref("layout.css.prefers-color-scheme.content-override", 1);' "$profile/user.js"
 check $? "firefox follows a switch to a light palette"
 
@@ -375,13 +375,13 @@ check $? "the pref is rewritten where it stands, not stacked"
 grep -q 'browser.startup.homepage' "$profile/user.js"
 check $? "firefox link leaves prefs of your own alone"
 
-NARCHY_APPS=firefox "$NARCHY" set tokyo-night >/dev/null 2>&1
+KROMI_APPS=firefox "$KROMI" set tokyo-night >/dev/null 2>&1
 
 echo "unlinking"
 
-"$NARCHY" unlink $apps >/dev/null
+"$KROMI" unlink $apps >/dev/null
 
-! grep -rq 'narchy' "$XDG_CONFIG_HOME/hypr" "$XDG_CONFIG_HOME/waybar" 2>/dev/null
+! grep -rq 'kromi' "$XDG_CONFIG_HOME/hypr" "$XDG_CONFIG_HOME/waybar" 2>/dev/null
 check $? "unlink leaves no residue"
 
 diff -r "$SANDBOX/config.before/hypr" "$XDG_CONFIG_HOME/hypr" >/dev/null
@@ -401,7 +401,7 @@ diff -r "$SANDBOX/mozilla.before" "$HOME/.mozilla" >/dev/null &&
 check $? "unlink puts the firefox profiles back byte for byte"
 
 # Nothing may be written to a config that was never linked.
-"$NARCHY" set gruvbox >/dev/null
+"$KROMI" set gruvbox >/dev/null
 [[ $(jq -r '."workbench.colorCustomizations"."editor.background" // "none"' "$settings") == "none" ]]
 check $? "set leaves vscode alone when it is not linked"
 
@@ -417,32 +417,32 @@ mkdir -p "$FFAPP/defaults/pref"
 printf '#!/bin/sh\n' >"$FFAPP/firefox"
 chmod +x "$FFAPP/firefox"
 
-NARCHY_PATH=$ROOT NARCHY_FIREFOX_APP=$FFAPP "$ROOT/bin/narchy-firefox-live" install >/dev/null
-[[ -f $FFAPP/narchy-live.cfg && -f $FFAPP/defaults/pref/narchy-autoconfig.js ]]
+KROMI_PATH=$ROOT KROMI_FIREFOX_APP=$FFAPP "$ROOT/bin/kromi-firefox-live" install >/dev/null
+[[ -f $FFAPP/kromi-live.cfg && -f $FFAPP/defaults/pref/kromi-autoconfig.js ]]
 check $? "the live loader installs beside the program"
 
-grep -q '"general.config.filename", "narchy-live.cfg"' "$FFAPP/defaults/pref/narchy-autoconfig.js"
+grep -q '"general.config.filename", "kromi-live.cfg"' "$FFAPP/defaults/pref/kromi-autoconfig.js"
 check $? "the bootstrap names the loader"
 
-NARCHY_PATH=$ROOT NARCHY_FIREFOX_APP=$FFAPP "$ROOT/bin/narchy-firefox-live" status >"$SANDBOX/st.txt" 2>&1
+KROMI_PATH=$ROOT KROMI_FIREFOX_APP=$FFAPP "$ROOT/bin/kromi-firefox-live" status >"$SANDBOX/st.txt" 2>&1
 grep -q '^loader    installed$' "$SANDBOX/st.txt"
 check $? "status reports it in place"
 grep -q '^loader    installed$' "$SANDBOX/st.txt" || sed 's/^/       /' "$SANDBOX/st.txt"
 
 # There is one general.config.filename, and it may be somebody else's.
 printf 'pref("general.config.filename", "theirs.cfg");\n' >"$FFAPP/defaults/pref/theirs.js"
-! NARCHY_PATH=$ROOT NARCHY_FIREFOX_APP=$FFAPP "$ROOT/bin/narchy-firefox-live" install >/dev/null 2>&1
+! KROMI_PATH=$ROOT KROMI_FIREFOX_APP=$FFAPP "$ROOT/bin/kromi-firefox-live" install >/dev/null 2>&1
 check $? "install refuses to take over another autoconfig"
 rm -f "$FFAPP/defaults/pref/theirs.js"
 
-NARCHY_PATH=$ROOT NARCHY_FIREFOX_APP=$FFAPP "$ROOT/bin/narchy-firefox-live" uninstall >/dev/null
-[[ ! -e $FFAPP/narchy-live.cfg && ! -e $FFAPP/defaults/pref/narchy-autoconfig.js ]]
+KROMI_PATH=$ROOT KROMI_FIREFOX_APP=$FFAPP "$ROOT/bin/kromi-firefox-live" uninstall >/dev/null
+[[ ! -e $FFAPP/kromi-live.cfg && ! -e $FFAPP/defaults/pref/kromi-autoconfig.js ]]
 check $? "uninstall takes both files out again"
 
 # The knock, against a socket that answers and one that does not. python3 is
 # only standing in for a listening Firefox here.
 if command -v python3 >/dev/null 2>&1; then
-  mkdir -p "$XDG_RUNTIME_DIR/narchy"
+  mkdir -p "$XDG_RUNTIME_DIR/kromi"
   python3 -c '
 import os, socket, sys
 path = sys.argv[1]
@@ -452,22 +452,22 @@ s.listen(4)
 conn, _ = s.accept()
 conn.close()
 open(sys.argv[2], "w").write("knocked")
-' "$XDG_RUNTIME_DIR/narchy/firefox-1.sock" "$SANDBOX/knocked" &
+' "$XDG_RUNTIME_DIR/kromi/firefox-1.sock" "$SANDBOX/knocked" &
   listener=$!
   for _ in 1 2 3 4 5 6 7 8 9 10; do
-    [[ -S $XDG_RUNTIME_DIR/narchy/firefox-1.sock ]] && break
+    [[ -S $XDG_RUNTIME_DIR/kromi/firefox-1.sock ]] && break
     python3 -c 'import time; time.sleep(0.2)'
   done
 
-  NARCHY_PATH=$ROOT "$ROOT/bin/narchy-firefox-live" poke >/dev/null
+  KROMI_PATH=$ROOT "$ROOT/bin/kromi-firefox-live" poke >/dev/null
   wait $listener 2>/dev/null
   [[ -f $SANDBOX/knocked ]]
   check $? "poke reaches a listening firefox"
 
-  # Nothing is behind it now, and a socket nobody answers is one narchy would
+  # Nothing is behind it now, and a socket nobody answers is one kromi would
   # knock on for the rest of the session.
-  NARCHY_PATH=$ROOT "$ROOT/bin/narchy-firefox-live" poke >/dev/null || true
-  [[ ! -e $XDG_RUNTIME_DIR/narchy/firefox-1.sock ]]
+  KROMI_PATH=$ROOT "$ROOT/bin/kromi-firefox-live" poke >/dev/null || true
+  [[ ! -e $XDG_RUNTIME_DIR/kromi/firefox-1.sock ]]
   check $? "a socket with nobody behind it is cleared away"
 fi
 
@@ -479,8 +479,8 @@ echo "neovim live reload"
 if command -v nvim >/dev/null 2>&1; then
   themed_init="$SANDBOX/nvim-themed.lua"
   own_init="$SANDBOX/nvim-own.lua"
-  printf 'pcall(dofile, "%s/narchy/current/neovim.lua")\n' "$XDG_STATE_HOME" >"$themed_init"
-  # An init.lua is free to take a colorscheme of its own below narchy's line.
+  printf 'pcall(dofile, "%s/kromi/current/neovim.lua")\n' "$XDG_STATE_HOME" >"$themed_init"
+  # An init.lua is free to take a colorscheme of its own below kromi's line.
   # Spelled out rather than named, so the test does not turn on which schemes
   # a given nvim build ships.
   {
@@ -489,7 +489,7 @@ if command -v nvim >/dev/null 2>&1; then
     printf 'vim.api.nvim_set_hl(0, "Normal", { bg = "#123456" })\n'
   } >"$own_init"
 
-  live() { NARCHY_APPS=neovim NARCHY_PATH="$ROOT" "$NARCHY" set "$1" >/dev/null; }
+  live() { KROMI_APPS=neovim KROMI_PATH="$ROOT" "$KROMI" set "$1" >/dev/null; }
 
   # Started on one palette, so switching to another is what has to show up.
   live nord
@@ -498,7 +498,7 @@ if command -v nvim >/dev/null 2>&1; then
   themed=$!
   # A config under NVIM_APPNAME names its socket for the app rather than for
   # nvim, and is reached by the same walk over running instances.
-  NVIM_APPNAME=narchytest nvim --headless -u "$themed_init" >/dev/null 2>&1 &
+  NVIM_APPNAME=kromitest nvim --headless -u "$themed_init" >/dev/null 2>&1 &
   named=$!
   nvim --headless -u "$own_init" >/dev/null 2>&1 &
   own=$!
@@ -557,32 +557,32 @@ fi
 
 echo "interactive"
 
-NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
-NARCHY_APPS=dummy "$NARCHY" interactive 0 >"$SANDBOX/i.out" 2>/dev/null </dev/null
+KROMI_APPS=dummy "$KROMI" set nord >/dev/null
+KROMI_APPS=dummy "$KROMI" interactive 0 >"$SANDBOX/i.out" 2>/dev/null </dev/null
 
-# Every theme narchy lists, which includes any the sandbox added.
-"$NARCHY" list >"$SANDBOX/i-list.txt"
+# Every theme kromi lists, which includes any the sandbox added.
+"$KROMI" list >"$SANDBOX/i-list.txt"
 [[ $(grep -c '^\[' "$SANDBOX/i.out") == "$(wc -l <"$SANDBOX/i-list.txt")" ]]
 check $? "interactive visits every theme"
 
 # Running to the end must not strand you on whichever theme sorts last.
-[[ $("$NARCHY" current) == nord ]]
+[[ $("$KROMI" current) == nord ]]
 check $? "interactive restores the theme it started from"
 
-grep -q 'narchy set' "$SANDBOX/i.out"
+grep -q 'kromi set' "$SANDBOX/i.out"
 check $? "interactive says how to apply one you liked"
 
-! NARCHY_APPS=dummy "$NARCHY" interactive notanumber >/dev/null 2>&1 </dev/null
+! KROMI_APPS=dummy "$KROMI" interactive notanumber >/dev/null 2>&1 </dev/null
 check $? "interactive rejects a non-numeric delay"
 
 # Both short forms reach the same command.
-NARCHY_APPS=dummy "$NARCHY" i 0 >"$SANDBOX/i-alias.out" 2>/dev/null </dev/null
-NARCHY_APPS=dummy "$NARCHY" demo 0 >"$SANDBOX/demo-alias.out" 2>/dev/null </dev/null
+KROMI_APPS=dummy "$KROMI" i 0 >"$SANDBOX/i-alias.out" 2>/dev/null </dev/null
+KROMI_APPS=dummy "$KROMI" demo 0 >"$SANDBOX/demo-alias.out" 2>/dev/null </dev/null
 diff -q "$SANDBOX/i-alias.out" "$SANDBOX/demo-alias.out" >/dev/null
 check $? "i and demo are aliases for interactive"
 
 # The keys only exist when there is a terminal to read them from, so these run
-# narchy under a pty with the keystrokes queued ahead of it.
+# kromi under a pty with the keystrokes queued ahead of it.
 if command -v python3 >/dev/null 2>&1; then
   pty() {
     local keys=$1
@@ -628,19 +628,19 @@ sys.exit(0)
 ' "$keys" "$@"
   }
 
-  NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
-  NARCHY_APPS=dummy pty x "$NARCHY" i 5 >"$SANDBOX/i-auto.out" 2>&1 || true
+  KROMI_APPS=dummy "$KROMI" set nord >/dev/null
+  KROMI_APPS=dummy pty x "$KROMI" i 5 >"$SANDBOX/i-auto.out" 2>&1 || true
   grep -q 'auto on, 5s' "$SANDBOX/i-auto.out"
   check $? "interactive with an interval starts rolling"
 
-  NARCHY_APPS=dummy pty x "$NARCHY" i >"$SANDBOX/i-manual.out" 2>&1 || true
+  KROMI_APPS=dummy pty x "$KROMI" i >"$SANDBOX/i-manual.out" 2>&1 || true
   ! grep -q 'auto on' "$SANDBOX/i-manual.out"
   check $? "interactive without one waits for a key"
 
-  # It opens on the whole shelf: `narchy list`, star and all, before any key.
+  # It opens on the whole shelf: `kromi list`, star and all, before any key.
   # tr first: a terminal ends even a blank line with a carriage return.
   diff <(tr -d '\r' <"$SANDBOX/i-manual.out" | sed -n '1,/^$/p' | sed '/^$/d') \
-    <(NARCHY_APPS=dummy "$NARCHY" list) >/dev/null
+    <(KROMI_APPS=dummy "$KROMI" list) >/dev/null
   check $? "interactive opens with the theme list, starred as list does"
 
   # The theme you arrived with is the first one printed, and named as such.
@@ -652,74 +652,74 @@ sys.exit(0)
 
   # r steps back to the theme you came with without ending the browse, so the
   # x that follows is what stops it — and stops it on yours.
-  NARCHY_APPS=dummy pty 'nnrx' "$NARCHY" i >"$SANDBOX/i-restore.out" 2>&1 || true
+  KROMI_APPS=dummy pty 'nnrx' "$KROMI" i >"$SANDBOX/i-restore.out" 2>&1 || true
   [[ $(showing_of "$SANDBOX/i-restore.out") == nord ]]
   check $? "r steps back to the theme you came with"
 
   grep -q '^kept nord' "$SANDBOX/i-restore.out"
   check $? "r keeps browsing, so x is still what ends it"
 
-  [[ $(NARCHY_APPS=dummy "$NARCHY" current) == nord ]]
+  [[ $(KROMI_APPS=dummy "$KROMI" current) == nord ]]
   check $? "r leaves the theme where it found it"
 
   # x stops on whatever is showing rather than on the one you came with.
-  NARCHY_APPS=dummy pty 'nx' "$NARCHY" i >"$SANDBOX/i-keep.out" 2>&1 || true
+  KROMI_APPS=dummy pty 'nx' "$KROMI" i >"$SANDBOX/i-keep.out" 2>&1 || true
   showing=$(showing_of "$SANDBOX/i-keep.out")
   grep -q "^kept $showing" "$SANDBOX/i-keep.out"
   check $? "x keeps the theme it was showing"
 
-  [[ -n $showing && $showing != nord && $(NARCHY_APPS=dummy "$NARCHY" current) == "$showing" ]]
+  [[ -n $showing && $showing != nord && $(KROMI_APPS=dummy "$KROMI" current) == "$showing" ]]
   check $? "x leaves the theme it stopped on"
 
   # Ctrl-C is x: the trap fires at once but does not make a blocked read
   # return, so a browse that waits on the keypress itself sits there ignoring
   # it.
-  NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
-  NARCHY_APPS=dummy pty 'n\x03' "$NARCHY" i >"$SANDBOX/i-int.out" 2>&1 || true
+  KROMI_APPS=dummy "$KROMI" set nord >/dev/null
+  KROMI_APPS=dummy pty 'n\x03' "$KROMI" i >"$SANDBOX/i-int.out" 2>&1 || true
   grep -q '^kept ' "$SANDBOX/i-int.out"
   check $? "ctrl-c stops the browse"
 
   showing=$(showing_of "$SANDBOX/i-int.out")
-  [[ -n $showing && $showing != nord && $(NARCHY_APPS=dummy "$NARCHY" current) == "$showing" ]]
+  [[ -n $showing && $showing != nord && $(KROMI_APPS=dummy "$KROMI" current) == "$showing" ]]
   check $? "ctrl-c keeps the theme it was showing, not the one you came with"
 
-  NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
+  KROMI_APPS=dummy "$KROMI" set nord >/dev/null
 else
   echo "  skip interactive key handling (no python3 for a pty)"
 fi
 
 echo "background selection"
 
-BG="$XDG_CONFIG_HOME/narchy/backgrounds"
+BG="$XDG_CONFIG_HOME/kromi/backgrounds"
 mkdir -p "$BG/nord"
 echo x >"$BG/nord/1-first.jpg"
 echo y >"$BG/nord/2-second.png"
 echo z >"$BG/nord/3-third.jpg"
 
-NARCHY_APPS=dummy "$NARCHY" set nord >/dev/null
-[[ $("$NARCHY" background) == "$BG/nord/1-first.jpg" ]]
+KROMI_APPS=dummy "$KROMI" set nord >/dev/null
+[[ $("$KROMI" background) == "$BG/nord/1-first.jpg" ]]
 check $? "set points the background link at the first image"
 
-HP="$XDG_STATE_HOME/narchy/current/hyprpaper.conf"
+HP="$XDG_STATE_HOME/kromi/current/hyprpaper.conf"
 
-grep -qxF "    path = $XDG_STATE_HOME/narchy/current/background" "$HP"
+grep -qxF "    path = $XDG_STATE_HOME/kromi/current/background" "$HP"
 check $? "the wallpaper config names the link, not the image behind it"
 
 grep -qxF 'splash = false' "$HP"
 check $? "hyprpaper's own splash is turned off"
 
-[[ $(NARCHY_APPS=dummy "$NARCHY" background next) == "2-second.png" ]]
+[[ $(KROMI_APPS=dummy "$KROMI" background next) == "2-second.png" ]]
 check $? "background next advances"
 
-NARCHY_APPS=dummy "$NARCHY" background next >/dev/null
-[[ $(NARCHY_APPS=dummy "$NARCHY" background next) == "1-first.jpg" ]]
+KROMI_APPS=dummy "$KROMI" background next >/dev/null
+[[ $(KROMI_APPS=dummy "$KROMI" background next) == "1-first.jpg" ]]
 check $? "background next wraps around"
 
 # A theme nobody has pictures for must not break a switch.
-NARCHY_APPS=dummy "$NARCHY" set gruvbox >/dev/null
+KROMI_APPS=dummy "$KROMI" set gruvbox >/dev/null
 check $? "set works for a theme with no backgrounds"
 
-[[ ! -L $XDG_STATE_HOME/narchy/current/background ]]
+[[ ! -L $XDG_STATE_HOME/kromi/current/background ]]
 check $? "no background link when there are no images"
 
 # The sourced file has to exist even then: hyprpaper shrugs off a path it
@@ -746,10 +746,10 @@ echo "upstream-c" >"$SOURCE/themes/gruvbox/backgrounds/c.jpg"
   git tag v-test
 ) >/dev/null 2>&1
 
-export NARCHY_BACKGROUNDS_REPO="$SOURCE"
-export NARCHY_BACKGROUNDS_REF="v-test"
-BACKGROUNDS="$ROOT/bin/narchy-backgrounds"
-DEST="$XDG_CONFIG_HOME/narchy/backgrounds"
+export KROMI_BACKGROUNDS_REPO="$SOURCE"
+export KROMI_BACKGROUNDS_REF="v-test"
+BACKGROUNDS="$ROOT/bin/kromi-backgrounds"
+DEST="$XDG_CONFIG_HOME/kromi/backgrounds"
 
 "$BACKGROUNDS" nord gruvbox >/dev/null 2>&1
 [[ -f $DEST/nord/a.jpg && -f $DEST/nord/b.jpg && -f $DEST/gruvbox/c.jpg ]]

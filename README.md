@@ -1,10 +1,10 @@
-# narchy
+# kromi
 
 Apply one colour palette across a desktop's apps — bar, launcher, notifications,
 terminal, compositor — with a single command.
 
 ```sh
-narchy set tokyo-night
+kromi set tokyo-night
 ```
 
 The engine is bash and sed. There is nothing to compile and no daemon. It does
@@ -17,10 +17,10 @@ https://github.com/user-attachments/assets/ed646693-63d0-411f-a5fc-e57ae086aa4b
 ## Install
 
 ```sh
-git clone https://github.com/patte/narchy ~/.local/share/narchy
-ln -s ~/.local/share/narchy/bin/narchy ~/.local/bin/narchy
-ln -s ~/.local/share/narchy/bin/narchy-backgrounds ~/.local/bin/narchy-backgrounds
-ln -s ~/.local/share/narchy/bin/narchy-firefox-live ~/.local/bin/narchy-firefox-live
+git clone https://github.com/patte/kromi ~/.local/share/kromi
+ln -s ~/.local/share/kromi/bin/kromi ~/.local/bin/kromi
+ln -s ~/.local/share/kromi/bin/kromi-backgrounds ~/.local/bin/kromi-backgrounds
+ln -s ~/.local/share/kromi/bin/kromi-firefox-live ~/.local/bin/kromi-firefox-live
 ```
 
 The last two are optional and do nothing unless you run them — see Wallpapers,
@@ -29,27 +29,27 @@ and Firefox.
 ## Use
 
 ```
-narchy set <theme>      render the palette and reload running apps
-narchy list             list themes, marking the current one
-narchy interactive      list themes, then browse them: n/p step, a auto,
-  (i, demo) [seconds]   r restore, x keep; with seconds, starts rolling
-narchy current          print the current theme
-narchy background next  cycle to this theme's next wallpaper
-narchy background apply put the current one back on a running daemon
-narchy apps             list app definitions, marking detected ones
-narchy link [app...]    point app configs at narchy's output (opt-in)
-narchy unlink [app...]  undo link
+kromi set <theme>      render the palette and reload running apps
+kromi list             list themes, marking the current one
+kromi interactive      list themes, then browse them: n/p step, a auto,
+  (i, demo) [seconds]  r restore, x keep; with seconds, starts rolling
+kromi current          print the current theme
+kromi background next  cycle to this theme's next wallpaper
+kromi background apply put the current one back on a running daemon
+kromi apps             list app definitions, marking detected ones
+kromi link [app...]    point app configs at kromi's output (opt-in)
+kromi unlink [app...]  undo link
 ```
 
 ## Picking one
 
 ```sh
-narchy i        # step by hand, a key at a time
-narchy i 8      # roll on its own, 8 seconds a theme
+kromi i        # step by hand, a key at a time
+kromi i 8      # roll on its own, 8 seconds a theme
 ```
 
 `interactive` is the full name; `i` and `demo` both reach it. It opens with
-every theme it knows, starred where you are now — the same listing `narchy
+every theme it knows, starred where you are now — the same listing `kromi
 list` gives — then applies a theme, prints its name, and waits for a key:
 
 ```
@@ -76,44 +76,44 @@ comes back to — so `p` reaches the one before it. Naming an interval starts it
 rolling at that interval; with no interval it steps by hand until you press
 `a`, then every 3 seconds. Ctrl-C behaves like `x`: quitting abruptly should
 not undo a theme you stopped on to look at. The names stay in your scrollback
-either way, so one you liked and missed is a `narchy set <name>` away.
+either way, so one you liked and missed is a `kromi set <name>` away.
 
 With no terminal to read keys from — piped, or from a script — it just rolls
 through unattended and restores what you had at the end.
 
 ## Two layers, on purpose
 
-`narchy set` **only ever writes inside `~/.local/state/narchy/current/`.** It
+`kromi set` **only ever writes inside `~/.local/state/kromi/current/`.** It
 renders one file per app from the palette and reloads whatever is running. It
 never edits a config of yours.
 
 VS Code is the single exception, and only once you have linked it — see below.
 
 For those generated files to matter, each app's own config has to point at them.
-That is one line per app, and it is a separate command — `narchy link` — because
+That is one line per app, and it is a separate command — `kromi link` — because
 plenty of people keep their dotfiles under version control or configuration
 management and want to write that line themselves.
 
-So: run `narchy link` once and forget about it, or skip it forever and add the
+So: run `kromi link` once and forget about it, or skip it forever and add the
 lines below to your own configs. Both are first-class.
 
 ## Wiring it by hand
 
-Paths assume the default `XDG_STATE_HOME`. `narchy link` writes exactly these.
+Paths assume the default `XDG_STATE_HOME`. `kromi link` writes exactly these.
 
 | App | Config | Line |
 |---|---|---|
-| waybar | `~/.config/waybar/style.css` | `@import "~/.local/state/narchy/current/palette.css";` at the **top**, `@import "~/.local/state/narchy/current/waybar.css";` at the **bottom** |
+| waybar | `~/.config/waybar/style.css` | `@import "~/.local/state/kromi/current/palette.css";` at the **top**, `@import "~/.local/state/kromi/current/waybar.css";` at the **bottom** |
 | wofi | `~/.config/wofi/style.css` | same two, same order |
-| mako | `~/.config/mako/config` | `include=~/.local/state/narchy/current/mako.ini` |
-| ghostty | `~/.config/ghostty/config` | `config-file = ?"~/.local/state/narchy/current/ghostty.conf"` |
-| hyprland | `~/.config/hypr/hyprland.lua` | `pcall(dofile, (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/narchy/current/hyprland.lua")` |
-| btop | `~/.config/btop/btop.conf` | symlink `~/.local/state/narchy/current/btop.theme` into `~/.config/btop/themes/`, then set `color_theme` to its name |
-| neovim | `~/.config/nvim/init.lua` | `pcall(dofile, (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/narchy/current/neovim.lua")` |
-| hyprpaper | `~/.config/hypr/hyprpaper.conf` | `source = ~/.local/state/narchy/current/hyprpaper.conf` |
+| mako | `~/.config/mako/config` | `include=~/.local/state/kromi/current/mako.ini` |
+| ghostty | `~/.config/ghostty/config` | `config-file = ?"~/.local/state/kromi/current/ghostty.conf"` |
+| hyprland | `~/.config/hypr/hyprland.lua` | `pcall(dofile, (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/kromi/current/hyprland.lua")` |
+| btop | `~/.config/btop/btop.conf` | symlink `~/.local/state/kromi/current/btop.theme` into `~/.config/btop/themes/`, then set `color_theme` to its name |
+| neovim | `~/.config/nvim/init.lua` | `pcall(dofile, (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/kromi/current/neovim.lua")` |
+| hyprpaper | `~/.config/hypr/hyprpaper.conf` | `source = ~/.local/state/kromi/current/hyprpaper.conf` |
 | vscode | `~/.config/Code/User/settings.json` | no line — see below |
 | vlc | `~/.config/vlc/vlcrc` | no line — see below |
-| firefox | `~/.config/mozilla/firefox/<profile>/chrome/userChrome.css` | `@import url("narchy.css");` at the **top**, beside a symlink of that name — see below |
+| firefox | `~/.config/mozilla/firefox/<profile>/chrome/userChrome.css` | `@import url("kromi.css");` at the **top**, beside a symlink of that name — see below |
 
 GTK stylesheets need absolute paths — `~` is not expanded there, so use the full
 path in the waybar and wofi imports.
@@ -123,7 +123,7 @@ where `@define-color` names must be declared before use, and the overrides go at
 the bottom where they can beat the stylesheet already in place. Everything else
 is prepended, so anything you write below it stays in charge.
 
-Pre-0.5x Hyprland uses `hyprland.conf` and `source =` instead; narchy detects
+Pre-0.5x Hyprland uses `hyprland.conf` and `source =` instead; kromi detects
 which one you have and renders to match.
 
 ### Why VS Code is different
@@ -134,11 +134,11 @@ rereading the file. A generated theme extension therefore leaves the editor a
 palette behind until you reload the window. `workbench.colorCustomizations` is
 the one thing it applies immediately.
 
-So narchy merges three keys — `workbench.colorCustomizations`,
+So kromi merges three keys — `workbench.colorCustomizations`,
 `editor.tokenColorCustomizations` and `workbench.colorTheme` — into your
 `settings.json`, and does it again on every switch. Everything else in the file
-is left alone. `narchy link vscode` saves whatever those three keys held first,
-and `narchy unlink vscode` puts them back.
+is left alone. `kromi link vscode` saves whatever those three keys held first,
+and `kromi unlink vscode` puts them back.
 
 Customisations replace only the keys they name, and a key VS Code defines in
 terms of another one — `editorGutter.background` is `editor.background`,
@@ -151,35 +151,35 @@ markdown preview, notebook output, extension panels — take their light or dark
 from the theme's kind, not from any colour, and would stay dark under a light
 palette.
 
-This only ever happens after linking. Until then `narchy set` does not open
+This only ever happens after linking. Until then `kromi set` does not open
 your `settings.json` at all.
 
 ### Why VLC is different, and how little it gets
 
 VLC has no colours to set. Its Qt interface offers one boolean,
-`qt-dark-palette`, which swaps Qt's palette wholesale — so all narchy can tell
+`qt-dark-palette`, which swaps Qt's palette wholesale — so all kromi can tell
 it is which side of light and dark the theme sits on, taken from the same
 `mode` every other template uses. A dark palette turns it on, a light one off.
 
-`vlcrc` has no include either, so narchy rewrites that one key in place, where
-VLC left it commented out under `[qt]`. `narchy link vlc` records the line as
-it found it and `narchy unlink vlc` puts it back, comment and all — the same
+`vlcrc` has no include either, so kromi rewrites that one key in place, where
+VLC left it commented out under `[qt]`. `kromi link vlc` records the line as
+it found it and `kromi unlink vlc` puts it back, comment and all — the same
 backup-as-marker VS Code uses, so an unlinked VLC is never written to.
 
 What it cannot do is switch a VLC that is already open. The interface reads
-`vlcrc` when it starts and never looks again, so `narchy set` puts the new
+`vlcrc` when it starts and never looks again, so `kromi set` puts the new
 value in the file immediately and the player in front of you keeps the palette
-it launched with until you restart it — narchy warns when it sees one running.
+it launched with until you restart it — kromi warns when it sees one running.
 Nothing is lost in the meantime: quitting VLC leaves `vlcrc` byte for byte as
 it was. Saving preferences from VLC's own dialog is the one thing that rewrites
-the file, and it will write narchy's key along with the rest.
+the file, and it will write kromi's key along with the rest.
 
 ### Why Firefox is different, and where it stops
 
-Firefox has no include for a config and no theme narchy can hand it: an
+Firefox has no include for a config and no theme kromi can hand it: an
 add-on theme has to be signed and installed, and a generated one is neither.
 What it does have is `userChrome.css` and `userContent.css`, two stylesheets it
-reads from the profile — so narchy renders those and points the profile at
+reads from the profile — so kromi renders those and points the profile at
 them.
 
 Three files come out of a `set`. `firefox.css` is the window around the page —
@@ -194,19 +194,19 @@ thing in CSS that outranks the browser's own — without it almost nothing lands
 Most of the work is done by setting the custom properties Firefox paints its
 chrome from, so the colours reach widgets no selector names.
 
-`narchy link firefox` writes into every profile `profiles.ini` names — which
-one your launcher opens is not narchy's to guess, and a palette that misses the
+`kromi link firefox` writes into every profile `profiles.ini` names — which
+one your launcher opens is not kromi's to guess, and a palette that misses the
 profile you actually use is worse than one written twice. Per profile it makes
-`chrome/narchy.css` and `chrome/narchy-content.css`, symlinks to the two
+`chrome/kromi.css` and `chrome/kromi-content.css`, symlinks to the two
 generated sheets, and imports them by name:
 
 ```
-@import url("narchy.css");          /* first line of chrome/userChrome.css   */
-@import url("narchy-content.css");  /* first line of chrome/userContent.css  */
+@import url("kromi.css");          /* first line of chrome/userChrome.css   */
+@import url("kromi-content.css");  /* first line of chrome/userContent.css  */
 ```
 
 Both go at the top, because CSS drops an `@import` that comes after a rule —
-and both are symlinks rather than an import naming narchy's file where it
+and both are symlinks rather than an import naming kromi's file where it
 lies, because `userContent.css` applies to content documents, which are loaded
 by a sandboxed process that may not read outside the profile. An absolute
 `file://` import there is fetched by nobody and fails without a word; the
@@ -223,7 +223,7 @@ Without that pref Firefox does not read either sheet.
 
 Profiles are looked for in `~/.config/mozilla/firefox`, where Firefox now
 keeps them, and in `~/.mozilla/firefox`, where it kept them before and still
-reads them from — whichever exists, or both. `NARCHY_FIREFOX_HOME` replaces
+reads them from — whichever exists, or both. `KROMI_FIREFOX_HOME` replaces
 that with a root of your own, or several separated by spaces: LibreWolf keeps
 its profiles in `~/.librewolf`, a Flatpak Firefox in
 `~/.var/app/org.mozilla.firefox/.mozilla/firefox`.
@@ -233,7 +233,7 @@ restyle every site you visit, and a palette that repaints the web is a
 different thing from one that paints the browser. What a site does get is which
 side of light and dark to render as, because that is the one thing colours
 cannot say for themselves: a page picks it from `prefers-color-scheme`, which
-follows the browser theme, and there is no theme here to follow. So narchy sets
+follows the browser theme, and there is no theme here to follow. So kromi sets
 the pref Firefox's own **Settings → Website appearance** writes, and keeps it
 up to date on every switch:
 
@@ -245,40 +245,40 @@ That is the only thing a `set` writes into your profile, and only after
 linking: `link` records the pref as it found it, which is both the backup
 `unlink` restores from and the mark that keeps `set` away from an unlinked
 profile — the same arrangement VS Code and VLC use. One wart is Firefox's, not
-narchy's: `user.js` is copied into `prefs.js` at every start, so unlinking
-stops narchy setting the pref but the last value it had stays until you change
+kromi's: `user.js` is copied into `prefs.js` at every start, so unlinking
+stops kromi setting the pref but the last value it had stays until you change
 it in Settings.
 
 What none of this can do is switch a Firefox that is already open. The
 stylesheets are parsed once per run and cached for every window after, so a new
 window is no help either — a switch lands in the files immediately and shows up
-the next time Firefox starts. narchy warns when it sees one running.
+the next time Firefox starts. kromi warns when it sees one running.
 
 ### Landing a switch in a Firefox that is open
 
-`narchy-firefox-live` is the way round that, and a bigger ask than anything
+`kromi-firefox-live` is the way round that, and a bigger ask than anything
 else here. Firefox runs privileged JavaScript only from its own install
-directory, so the loader goes in beside the program, as root: `narchy-live.cfg`
-and a three-line `defaults/pref/narchy-autoconfig.js` that names it. A Firefox
+directory, so the loader goes in beside the program, as root: `kromi-live.cfg`
+and a three-line `defaults/pref/kromi-autoconfig.js` that names it. A Firefox
 update replaces that directory and takes the loader with it, so it has to be
 run again after one. That is the price, and it is why this is a separate
 command rather than part of `link`.
 
 ```sh
-narchy-firefox-live install     # then restart firefox once
-narchy-firefox-live status
-narchy-firefox-live uninstall
+kromi-firefox-live install     # then restart firefox once
+kromi-firefox-live status
+kromi-firefox-live uninstall
 ```
 
-What the loader does is watch narchy's output and hand it to
+What the loader does is watch kromi's output and hand it to
 `nsIStyleSheetService`, which registers a stylesheet into documents that are
 already open — both sheets, and the website appearance pref with them, which a
-running Firefox also takes at once. After the one restart, every `narchy set`
-recolours the windows in front of you, and nothing of narchy's is written into
+running Firefox also takes at once. After the one restart, every `kromi set`
+recolours the windows in front of you, and nothing of kromi's is written into
 your profile at all.
 
 It is told rather than left watching. Firefox listens on a unix socket in
-`$XDG_RUNTIME_DIR/narchy`, one per process, and `narchy set` opens a connection
+`$XDG_RUNTIME_DIR/kromi`, one per process, and `kromi set` opens a connection
 to each — the connection is the whole message, so nothing is sent and nothing
 is read. Nothing wakes up in between, and a switch lands as fast as a socket
 can be opened. Knocking needs `socat`, a netcat with `-U`, or `python3`; with
@@ -291,16 +291,16 @@ rendered together and swapped into place together, so the chrome sheet stands
 for all three — and editing one of the other two by hand goes unnoticed until
 that one moves. `touch` it, or set the theme again.
 
-Use this **or** `narchy link firefox`, not both. A sheet imported by
+Use this **or** `kromi link firefox`, not both. A sheet imported by
 userChrome.css is loaded first and wins over one registered later, so a linked
 profile pins the palette Firefox started with and the loader appears to do
-nothing. Run `narchy unlink firefox` before installing; the loader needs
+nothing. Run `kromi unlink firefox` before installing; the loader needs
 nothing from the profile, and `install` says so if it finds one still linked.
 
 Once it is in, `link` refuses firefox from the other side — named outright or
-reached by a bare `narchy link`, which is what keeps a configuration management
+reached by a bare `kromi link`, which is what keeps a configuration management
 run from quietly shadowing the loader on its way past. The other apps link as
-usual. `narchy-firefox-live uninstall` gives firefox back to `link`.
+usual. `kromi-firefox-live uninstall` gives firefox back to `link`.
 
 ### neovim
 
@@ -310,11 +310,11 @@ covers any palette, including your own.
 
 Instances already open change with everything else. nvim listens on a socket
 of its own from the moment it starts — no `--listen`, no plugin, nothing to
-set up — and `narchy set` walks the running ones and has each read the file
+set up — and `kromi set` walks the running ones and has each read the file
 again, firing `ColorScheme` so statuslines and the like re-colour with it.
 
-Only the instances still wearing narchy's colours: an `init.lua` that picks a
-colorscheme below narchy's line has already overridden it there, and a theme
+Only the instances still wearing kromi's colours: an `init.lua` that picks a
+colorscheme below kromi's line has already overridden it there, and a theme
 switch is no reason to take that window off the scheme you chose. An instance
 that is busy when the switch arrives — at a hit-enter prompt, waiting on a `:!`
 command — is left as it is rather than waited on, and takes the palette at the
@@ -363,7 +363,7 @@ The hue names — `red`, `green`, `yellow`, `blue`, `magenta`, `cyan` and their
 `bright_` forms — are always aliases for `color1`–`color14`, so templates can
 read as what they mean. Only the slots are authoritative.
 
-Drop your own in `~/.config/narchy/themes/<name>/`. That directory shadows the
+Drop your own in `~/.config/kromi/themes/<name>/`. That directory shadows the
 shipped one, so a theme of the same name replaces it.
 
 A theme may also ship a finished file instead of letting a template generate it
@@ -401,50 +401,50 @@ name works everywhere, because `muted` is matte-black's surface colour and
 `color8` is flexoki-light's foreground. Use it for text that should recede;
 use `muted` for the borders and separators that surround it.
 
-Override any of them from `~/.config/narchy/templates/`.
+Override any of them from `~/.config/kromi/templates/`.
 
 ## Wallpapers
 
-narchy ships none. They are not the project's to hand out: a palette is a list
+kromi ships none. They are not the project's to hand out: a palette is a list
 of hex codes, but a wallpaper is someone's photograph or artwork, and an
 upstream set that mixes freely licensed photography with film stills and
 paintings cannot be relicensed by whoever collected it.
 
-`narchy-backgrounds` fetches them instead, so the files come from their source
+`kromi-backgrounds` fetches them instead, so the files come from their source
 rather than from here:
 
 ```sh
-narchy-backgrounds --list          # what is available, and how many
-narchy-backgrounds                 # every theme narchy knows about
-narchy-backgrounds nord kanagawa   # just these
+kromi-backgrounds --list          # what is available, and how many
+kromi-backgrounds                 # every theme kromi knows about
+kromi-backgrounds nord kanagawa   # just these
 ```
 
-They land in `~/.config/narchy/backgrounds/<theme>/`. **Nothing already there
+They land in `~/.config/kromi/backgrounds/<theme>/`. **Nothing already there
 is ever overwritten**, so pictures you put there yourself survive a re-run —
 only names that do not exist yet are added.
 
-Defaults to Omarchy v3.8.4. Point it elsewhere with `NARCHY_BACKGROUNDS_REPO`
-and `NARCHY_BACKGROUNDS_REF`; any repository laid out as
+Defaults to Omarchy v3.8.4. Point it elsewhere with `KROMI_BACKGROUNDS_REPO`
+and `KROMI_BACKGROUNDS_REF`; any repository laid out as
 `themes/<name>/backgrounds/` will do, including one of your own.
 
-Downloading art does not license it. Fetching means narchy is not the one
+Downloading art does not license it. Fetching means kromi is not the one
 distributing these files, but they still belong to the people who made them,
 and a few in the upstream set are plainly not free to redistribute. Use your
 judgement, particularly if you are putting the result somewhere public.
 
 ### Setting them
 
-`narchy set` points `~/.local/state/narchy/current/background` at the first
-image for that theme, and `narchy background next` cycles through the rest.
+`kromi set` points `~/.local/state/kromi/current/background` at the first
+image for that theme, and `kromi background next` cycles through the rest.
 Which daemon puts it on screen is an app definition like any other; hyprpaper
 ships, and a theme may carry its own `backgrounds/` directory instead of
 relying on yours.
 
-`narchy link hyprpaper` adds one line to `~/.config/hypr/hyprpaper.conf`,
+`kromi link hyprpaper` adds one line to `~/.config/hypr/hyprpaper.conf`,
 creating it if you have none:
 
 ```
-source = ~/.local/state/narchy/current/hyprpaper.conf
+source = ~/.local/state/kromi/current/hyprpaper.conf
 ```
 
 That file names the wallpaper link, so hyprpaper puts the right picture up by
@@ -456,11 +456,11 @@ exec-once = hyprpaper
 ```
 
 Config is read once, at startup, so a switch made while it is running goes over
-IPC instead; that is what `reload` does, and what `narchy background apply` is
+IPC instead; that is what `reload` does, and what `kromi background apply` is
 for on an unlinked setup. Note that hyprpaper draws Hyprland's splash string
 over the wallpaper itself, which `misc:disable_splash_rendering` does not
-govern — narchy's file turns it off with `splash = false`. Anything you write
-below the source line overrides what narchy set, that one included.
+govern — kromi's file turns it off with `splash = false`. Anything you write
+below the source line overrides what kromi set, that one included.
 
 A theme with no images just gets no wallpaper; nothing fails. Pointing at a
 picture that is not there is an error hyprpaper logs and keeps running from —
@@ -469,7 +469,7 @@ so `link` refuses before there is a theme to source.
 
 ## Adding an app
 
-An app is one file in `apps/`, or in `~/.config/narchy/apps/` for your own. It
+An app is one file in `apps/`, or in `~/.config/kromi/apps/` for your own. It
 declares which templates it wants and how to reload itself:
 
 ```sh
@@ -489,7 +489,7 @@ unlink() { drop_line "$config" "$include"; }
 and `set_kv` are available to app files. Apps whose `detect` fails are skipped,
 so an app file costs nothing on a machine that lacks the program.
 
-Set `NARCHY_APPS="waybar mako"` in `~/.config/narchy/config` to override
+Set `KROMI_APPS="waybar mako"` in `~/.config/kromi/config` to override
 detection entirely.
 
 ## Supported out of the box
@@ -511,6 +511,6 @@ starts itself, on sockets inside the sandbox.
 
 The palettes and the template-and-sed approach come from
 [Omarchy](https://github.com/basecamp/omarchy) by David Heinemeier Hansson, MIT
-licensed. narchy extracts that idea into a standalone tool: no distribution, no
+licensed. kromi extracts that idea into a standalone tool: no distribution, no
 opinions about which bar or launcher you run, and app configs left alone unless
 you ask. See NOTICE.

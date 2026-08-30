@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
-# narchy-backgrounds — fetch theme wallpapers into ~/.config/narchy/backgrounds.
+# kromi-backgrounds — fetch theme wallpapers into ~/.config/kromi/backgrounds.
 #
-# Kept out of `narchy` on purpose: the tool itself never touches the network
+# Kept out of `kromi` on purpose: the tool itself never touches the network
 # and needs nothing but bash and sed. This needs git, and runs about once.
 #
-# narchy ships no wallpapers. They belong to whoever made them, are not
-# narchy's to redistribute, and the upstream set mixes freely licensed
+# kromi ships no wallpapers. They belong to whoever made them, are not
+# kromi's to redistribute, and the upstream set mixes freely licensed
 # photography with stills and artwork that plainly are not. Fetching them
 # copies someone else's files onto your disk for your own use; it does not
 # make them yours. Point --repo somewhere else if you would rather not.
 set -euo pipefail
 
-REPO=${NARCHY_BACKGROUNDS_REPO:-https://github.com/basecamp/omarchy.git}
-REF=${NARCHY_BACKGROUNDS_REF:-v3.8.4}
+REPO=${KROMI_BACKGROUNDS_REPO:-https://github.com/basecamp/omarchy.git}
+REF=${KROMI_BACKGROUNDS_REF:-v3.8.4}
 
-NARCHY_PATH="${NARCHY_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}"
-NARCHY_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/narchy"
-DEST="$NARCHY_CONFIG/backgrounds"
+KROMI_PATH="${KROMI_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}"
+KROMI_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/kromi"
+DEST="$KROMI_CONFIG/backgrounds"
 
 die() {
-  printf 'narchy-backgrounds: %s\n' "$*" >&2
+  printf 'kromi-backgrounds: %s\n' "$*" >&2
   exit 1
 }
 
@@ -30,24 +30,24 @@ trap cleanup EXIT
 
 usage() {
   cat <<'USAGE'
-narchy-backgrounds [--list] [theme...]
+kromi-backgrounds [--list] [theme...]
 
-  no arguments   fetch wallpapers for every theme narchy knows about
+  no arguments   fetch wallpapers for every theme kromi knows about
   theme...       fetch only those themes
   --list         show which themes have wallpapers upstream, and how many
 
-Files land in ~/.config/narchy/backgrounds/<theme>/. Anything already there is
+Files land in ~/.config/kromi/backgrounds/<theme>/. Anything already there is
 left alone, so your own pictures survive a re-run.
 
-  NARCHY_BACKGROUNDS_REPO   default https://github.com/basecamp/omarchy.git
-  NARCHY_BACKGROUNDS_REF    default v3.8.4
+  KROMI_BACKGROUNDS_REPO   default https://github.com/basecamp/omarchy.git
+  KROMI_BACKGROUNDS_REF    default v3.8.4
 USAGE
 }
 
 local_themes() {
   {
     local dir
-    for dir in "$NARCHY_CONFIG/themes" "$NARCHY_PATH/themes"; do
+    for dir in "$KROMI_CONFIG/themes" "$KROMI_PATH/themes"; do
       [[ -d $dir ]] && find -L "$dir" -mindepth 1 -maxdepth 1 \( -type d -o -type l \) -printf '%f\n'
     done
   } | sort -u

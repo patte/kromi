@@ -1,4 +1,4 @@
-narchy contains work derived from Omarchy (https://github.com/basecamp/omarchy),
+kromi contains work derived from Omarchy (https://github.com/basecamp/omarchy),
 Copyright (c) David Heinemeier Hansson, MIT licensed.
 
 Derived from Omarchy v3.8.4:
@@ -15,7 +15,7 @@ Derived from Omarchy v3.8.4:
   - staging generated files in a scratch directory and swapping it into place
     with a single mv
 
-Written for narchy: the app definition format, detection, the link/unlink
+Written for kromi: the app definition format, detection, the link/unlink
 commands, and the remaining templates.
 
 A full copy of Omarchy's licence is in LICENSE-omarchy.
@@ -43,5 +43,5 @@ from any of these projects is carried:
   - themes/retro-pc     — Omarchy RetroPC theme,
                           https://github.com/rondilley/omarchy-retropc-theme,
                           Copyright (c) Ron Dilley, GPL-3.0 licensed upstream.
-                          narchy is MIT: the amber values are recorded here as
+                          kromi is MIT: the amber values are recorded here as
                           data, and none of that project's files are included.

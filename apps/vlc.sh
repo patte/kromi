@@ -1,13 +1,13 @@
 templates="vlc.conf"
 
 vlcrc="${XDG_CONFIG_HOME:-$HOME/.config}/vlc/vlcrc"
-backup="$NARCHY_STATE/vlc-dark-palette-backup"
+backup="$KROMI_STATE/vlc-dark-palette-backup"
 
 detect() { command -v vlc >/dev/null 2>&1; }
 
 # VLC gets a side of light and dark, not a palette. `qt-dark-palette` swaps
 # Qt's own palette wholesale and is the only thing the Qt interface offers —
-# there is no colour in it to set, so mode is all narchy has to say.
+# there is no colour in it to set, so mode is all kromi has to say.
 #
 # There is no include either, and no reload: the interface reads vlcrc when it
 # starts and never looks again, so a switch lands in the file at once and shows
@@ -15,7 +15,7 @@ detect() { command -v vlc >/dev/null 2>&1; }
 # running — quitting one leaves vlcrc byte for byte as it was — but the player
 # in front of you keeps the palette it started with, which is what the warning
 # is for. Saving preferences from VLC's own dialog is the thing that rewrites
-# the file, and it writes narchy's key along with everything else.
+# the file, and it writes kromi's key along with everything else.
 #
 # set_kv is no good here: vlcrc is `key=value` with no spaces, and the key
 # ships commented out, which is how VLC spells a default. Rewriting that line

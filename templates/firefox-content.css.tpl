@@ -6,7 +6,7 @@
 
    Scoped to about: on purpose. userContent.css can restyle every site you
    visit, and a palette that repaints the web is a different thing from one
-   that paints the browser — narchy stops at the pages Firefox itself draws.
+   that paints the browser — kromi stops at the pages Firefox itself draws.
    Which side of light and dark the web gets is a pref, not a colour, and
    firefox.sh sets it; see the README.
 

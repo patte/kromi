@@ -9,7 +9,7 @@ vim.cmd("highlight clear")
 if vim.fn.exists("syntax_on") == 1 then
   vim.cmd("syntax reset")
 end
-vim.g.colors_name = "narchy"
+vim.g.colors_name = "kromi"
 
 -- surface and muted are not color0 and color8: several palettes hold the same
 -- value in both slots, which paints a statusline's text its own background.
@@ -139,4 +139,4 @@ end
 -- with dofile has to say so itself, or a live switch leaves them behind on
 -- the palette they started with. pcall because one plugin throwing here is
 -- not a reason for the rest of the colours to go unset.
-pcall(vim.api.nvim_exec_autocmds, "ColorScheme", { pattern = "narchy" })
+pcall(vim.api.nvim_exec_autocmds, "ColorScheme", { pattern = "kromi" })

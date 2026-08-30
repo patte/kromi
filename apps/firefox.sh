@@ -2,12 +2,12 @@ templates="firefox.css firefox-content.css firefox.conf"
 
 # Where the profiles live. Firefox has moved to the XDG directories and still
 # reads the old location, so take whichever is there rather than pick — both,
-# if a machine has both. NARCHY_FIREFOX_HOME overrides with a root of your own,
+# if a machine has both. KROMI_FIREFOX_HOME overrides with a root of your own,
 # or several: librewolf keeps its profiles in ~/.librewolf, a flatpak Firefox
 # in ~/.var/app/org.mozilla.firefox/.mozilla/firefox.
 firefox_homes() {
-  if [[ -n ${NARCHY_FIREFOX_HOME:-} ]]; then
-    printf '%s\n' ${NARCHY_FIREFOX_HOME}
+  if [[ -n ${KROMI_FIREFOX_HOME:-} ]]; then
+    printf '%s\n' ${KROMI_FIREFOX_HOME}
     return 0
   fi
   local dir
@@ -17,20 +17,20 @@ firefox_homes() {
   return 0
 }
 
-# One file per linked profile, holding the pref line as narchy found it. Both
+# One file per linked profile, holding the pref line as kromi found it. Both
 # the record unlink restores from and the mark that says this profile has been
 # linked, which is what keeps `set` off an unlinked one.
-marks="$NARCHY_STATE/firefox"
+marks="$KROMI_STATE/firefox"
 
 # A symlink in the profile's own chrome directory, imported by a relative URL,
-# rather than an @import naming narchy's file where it lies. userContent.css
+# rather than an @import naming kromi's file where it lies. userContent.css
 # is applied to content documents, which are loaded by a sandboxed process
 # that may not read outside the profile: an absolute file:// import there is
 # fetched by nobody and fails silently — the chrome sheet, loaded by the
 # parent process, would have been happy with one. Same shape for both, so
 # there is one thing to know rather than two.
-chrome_link="narchy.css"
-content_link="narchy-content.css"
+chrome_link="kromi.css"
+content_link="kromi-content.css"
 chrome_import="@import url(\"$chrome_link\");"
 content_import="@import url(\"$content_link\");"
 
@@ -39,7 +39,7 @@ stylesheets_pref='user_pref("toolkit.legacyUserProfileCustomizations.stylesheets
 
 # What websites are told to render as. The colours above cannot say it: a page
 # picks its own light or dark from prefers-color-scheme, which follows the
-# browser theme, and narchy installs no theme for it to follow. 0 is dark, 1
+# browser theme, and kromi installs no theme for it to follow. 0 is dark, 1
 # light — Settings writes the same pref from its Website appearance radio.
 scheme_key="layout.css.prefers-color-scheme.content-override"
 
@@ -110,8 +110,8 @@ apply() {
 # so the usual case is that there is no socket directory to look in and this
 # costs a test on a path.
 knock() {
-  local helper="$NARCHY_PATH/bin/narchy-firefox-live"
-  [[ -d ${XDG_RUNTIME_DIR:-/tmp}/narchy && -x $helper ]] || return 1
+  local helper="$KROMI_PATH/bin/kromi-firefox-live"
+  [[ -d ${XDG_RUNTIME_DIR:-/tmp}/kromi && -x $helper ]] || return 1
   "$helper" poke >/dev/null 2>&1
 }
 
@@ -129,13 +129,13 @@ reload() {
 # The live loader is the other way to do all this, and the two do not compose:
 # a sheet imported by userChrome.css is loaded before one registered later and
 # wins, so a linked profile pins the palette Firefox opened with and the loader
-# looks broken. narchy-firefox-live says as much from its side when it installs
-# over a linked profile. This is the half that matters to a bare `narchy link`,
+# looks broken. kromi-firefox-live says as much from its side when it installs
+# over a linked profile. This is the half that matters to a bare `kromi link`,
 # which would otherwise shadow a working loader without a word — and it asks
 # the helper rather than going looking, so there is one idea of where Firefox
 # is installed instead of two.
 live_installed() {
-  local helper="$NARCHY_PATH/bin/narchy-firefox-live"
+  local helper="$KROMI_PATH/bin/kromi-firefox-live"
   [[ -x $helper ]] || return 1
   "$helper" installed 2>/dev/null
 }
@@ -144,8 +144,8 @@ link() {
   local profile name found=0
 
   if live_installed; then
-    warn "narchy-firefox-live is installed; linking would shadow it"
-    warn "leave firefox to the loader, or 'narchy-firefox-live uninstall' first"
+    warn "kromi-firefox-live is installed; linking would shadow it"
+    warn "leave firefox to the loader, or 'kromi-firefox-live uninstall' first"
     return 1
   fi
 

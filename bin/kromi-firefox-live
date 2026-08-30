@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# narchy-firefox-live — make a running Firefox follow `narchy set`.
+# kromi-firefox-live — make a running Firefox follow `kromi set`.
 #
-# Kept out of `narchy` on purpose, and out of `narchy link` with it. Everything
+# Kept out of `kromi` on purpose, and out of `kromi link` with it. Everything
 # the tool itself does happens inside your home directory and undoes itself.
 # This does not: Firefox only runs privileged JavaScript from its own install
 # directory, so the loader goes in beside the program, as root, and a package
@@ -9,52 +9,52 @@
 #
 # What it buys is the one thing linking cannot do. Firefox parses
 # userChrome.css once per run and caches it for every window after, so a linked
-# profile shows a switch at its next start. The loader watches narchy's output
+# profile shows a switch at its next start. The loader watches kromi's output
 # and registers it into the windows already open, which makes a switch land
 # while you are looking at it.
 set -euo pipefail
 
-NARCHY_PATH="${NARCHY_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}"
+KROMI_PATH="${KROMI_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}"
 
-SOURCE="$NARCHY_PATH/apps/firefox-live.cfg"
-CFG="narchy-live.cfg"
-BOOTSTRAP="defaults/pref/narchy-autoconfig.js"
+SOURCE="$KROMI_PATH/apps/firefox-live.cfg"
+CFG="kromi-live.cfg"
+BOOTSTRAP="defaults/pref/kromi-autoconfig.js"
 
 # Where a listening Firefox puts its socket, one per process.
-KNOCKS="${XDG_RUNTIME_DIR:-/tmp}/narchy"
+KNOCKS="${XDG_RUNTIME_DIR:-/tmp}/kromi"
 
 die() {
-  printf 'narchy-firefox-live: %s\n' "$*" >&2
+  printf 'kromi-firefox-live: %s\n' "$*" >&2
   exit 1
 }
 say() { printf '%s\n' "$*"; }
 
 usage() {
   cat <<'USAGE'
-narchy-firefox-live [install|uninstall|status]
+kromi-firefox-live [install|uninstall|status]
 
   install     put the loader in Firefox's install directory (needs root)
   uninstall   take it back out
   status      say whether it is there, whether it is current, who is listening
   installed   say nothing, and exit 0 if the loader is in — what
-              `narchy link firefox` asks before it refuses to shadow one
-  poke        tell every listening firefox to look now — narchy does this
+              `kromi link firefox` asks before it refuses to shadow one
+  poke        tell every listening firefox to look now — kromi does this
               itself on every `set`, so it is here to be run by hand
 
-Then restart Firefox once. After that every `narchy set` recolours the windows
-already open, without a restart and without narchy writing to your profile.
+Then restart Firefox once. After that every `kromi set` recolours the windows
+already open, without a restart and without kromi writing to your profile.
 
 Firefox is told rather than left to watch: it listens on a unix socket under
-$XDG_RUNTIME_DIR/narchy, and narchy opens a connection to it. That needs socat,
+$XDG_RUNTIME_DIR/kromi, and kromi opens a connection to it. That needs socat,
 a netcat with -U, or python3. Without one of those the loader falls back to
 looking at the file, which works just as well and costs a wakeup a second.
 
-`narchy link firefox` is the other way to do this: no root, nothing outside
+`kromi link firefox` is the other way to do this: no root, nothing outside
 your home, and a switch shows up the next time Firefox starts. Use one or the
 other — a sheet imported by userChrome.css is loaded first and wins, which
-pins the palette Firefox opened with. Run `narchy unlink firefox` before this.
+pins the palette Firefox opened with. Run `kromi unlink firefox` before this.
 
-  NARCHY_FIREFOX_APP   Firefox's install directory, if it is somewhere unusual
+  KROMI_FIREFOX_APP   Firefox's install directory, if it is somewhere unusual
 USAGE
 }
 
@@ -62,7 +62,7 @@ USAGE
 # is: distributions ship a wrapper script there.
 app_dir() {
   local dir
-  for dir in ${NARCHY_FIREFOX_APP:-} /usr/lib64/firefox /usr/lib/firefox \
+  for dir in ${KROMI_FIREFOX_APP:-} /usr/lib64/firefox /usr/lib/firefox \
     /usr/lib64/firefox-esr /usr/lib/firefox-esr /opt/firefox /usr/local/lib/firefox; do
     [[ -x $dir/firefox ]] && {
       printf '%s\n' "$dir"
@@ -99,18 +99,18 @@ conflicting_bootstrap() {
   return 1
 }
 
-# Only to warn with: the profile roots narchy itself looks in.
+# Only to warn with: the profile roots kromi itself looks in.
 linked_profiles() {
   local -a roots
-  if [[ -n ${NARCHY_FIREFOX_HOME:-} ]]; then
-    roots=(${NARCHY_FIREFOX_HOME})
+  if [[ -n ${KROMI_FIREFOX_HOME:-} ]]; then
+    roots=(${KROMI_FIREFOX_HOME})
   else
     roots=("${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox" "$HOME/.mozilla/firefox")
   fi
   local root
   for root in "${roots[@]}"; do
     [[ -d $root ]] || continue
-    grep -l '@import url("narchy\.css");' "$root"/*/chrome/userChrome.css 2>/dev/null || true
+    grep -l '@import url("kromi\.css");' "$root"/*/chrome/userChrome.css 2>/dev/null || true
   done
 }
 
@@ -142,8 +142,8 @@ listeners() {
   return 0
 }
 
-# Whether the loader is in, quietly, for `narchy link firefox` to ask before it
-# shadows one. State on disk rather than anything narchy remembers: a Firefox
+# Whether the loader is in, quietly, for `kromi link firefox` to ask before it
+# shadows one. State on disk rather than anything kromi remembers: a Firefox
 # update replaces the install directory and takes the loader with it, so a mark
 # kept elsewhere would go on claiming it was there.
 #
@@ -161,7 +161,7 @@ can_knock() {
   command -v python3 >/dev/null 2>&1
 }
 
-# Called by the app definition on every `narchy set`, so it says nothing and
+# Called by the app definition on every `kromi set`, so it says nothing and
 # costs nothing when there is nobody to tell.
 cmd_poke() {
   local sock reached=0 rc
@@ -181,7 +181,7 @@ cmd_poke() {
 
 cmd_status() {
   local dir
-  dir=$(app_dir) || die "no firefox install found; set NARCHY_FIREFOX_APP"
+  dir=$(app_dir) || die "no firefox install found; set KROMI_FIREFOX_APP"
   say "firefox   $dir"
 
   if installed; then
@@ -205,13 +205,13 @@ cmd_status() {
 
   local linked
   linked=$(linked_profiles)
-  [[ -n $linked ]] && say "linked    $(printf '%s\n' "$linked" | wc -l) profile(s) still import narchy.css — see below"
+  [[ -n $linked ]] && say "linked    $(printf '%s\n' "$linked" | wc -l) profile(s) still import kromi.css — see below"
   return 0
 }
 
 cmd_install() {
   local dir conflict
-  dir=$(app_dir) || die "no firefox install found; set NARCHY_FIREFOX_APP"
+  dir=$(app_dir) || die "no firefox install found; set KROMI_FIREFOX_APP"
   [[ -f $SOURCE ]] || die "missing $SOURCE"
 
   if conflict=$(conflicting_bootstrap "$dir"); then
@@ -222,7 +222,7 @@ cmd_install() {
   as_root "$dir" install -d -m 0755 "$dir/defaults/pref"
   # Written rather than shipped: it is three lines, and they name the file above.
   as_root "$dir" tee "$dir/$BOOTSTRAP" >/dev/null <<EOF
-// Installed by narchy-firefox-live. Points Firefox at $CFG beside the program.
+// Installed by kromi-firefox-live. Points Firefox at $CFG beside the program.
 pref("general.config.filename", "$CFG");
 pref("general.config.obscure_value", 0);
 pref("general.config.sandbox_enabled", false);
@@ -234,7 +234,7 @@ EOF
   linked=$(linked_profiles)
   if [[ -n $linked ]]; then
     say ""
-    say "run 'narchy unlink firefox' first: a sheet imported by userChrome.css is"
+    say "run 'kromi unlink firefox' first: a sheet imported by userChrome.css is"
     say "loaded before this one and wins, which pins the palette Firefox started"
     say "with. These profiles still import it:"
     printf '  %s\n' $linked
@@ -247,13 +247,13 @@ EOF
   }
 
   say ""
-  say "restart firefox once. after that, every 'narchy set' lands in the windows"
+  say "restart firefox once. after that, every 'kromi set' lands in the windows"
   say "already open. a firefox update replaces $dir, so run this again after one."
 }
 
 cmd_uninstall() {
   local dir
-  dir=$(app_dir) || die "no firefox install found; set NARCHY_FIREFOX_APP"
+  dir=$(app_dir) || die "no firefox install found; set KROMI_FIREFOX_APP"
   if [[ ! -e $dir/$CFG && ! -e $dir/$BOOTSTRAP ]]; then
     say "nothing installed in $dir"
     return 0
@@ -261,7 +261,7 @@ cmd_uninstall() {
   as_root "$dir" rm -f "$dir/$CFG" "$dir/$BOOTSTRAP"
   say "removed from $dir"
   say "the palette stays until firefox restarts, and the sheets are still rendered"
-  say "— 'narchy link firefox' is the way to keep them without this."
+  say "— 'kromi link firefox' is the way to keep them without this."
 }
 
 main() {
@@ -272,7 +272,7 @@ main() {
     status) cmd_status ;;
     installed) installed ;;
     help | -h | --help) usage ;;
-    *) die "unknown command: ${1} (try 'narchy-firefox-live help')" ;;
+    *) die "unknown command: ${1} (try 'kromi-firefox-live help')" ;;
   esac
 }
 

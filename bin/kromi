@@ -1,29 +1,29 @@
 #!/usr/bin/env bash
-# narchy — apply one colour palette across a desktop's apps.
+# kromi — apply one colour palette across a desktop's apps.
 set -euo pipefail
 
-NARCHY_PATH="${NARCHY_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}"
-NARCHY_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/narchy"
-NARCHY_STATE="${XDG_STATE_HOME:-$HOME/.local/state}/narchy"
+KROMI_PATH="${KROMI_PATH:-$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}"
+KROMI_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/kromi"
+KROMI_STATE="${XDG_STATE_HOME:-$HOME/.local/state}/kromi"
 
-CURRENT="$NARCHY_STATE/current"
-NEXT="$NARCHY_STATE/next"
-LOCK="${XDG_RUNTIME_DIR:-/tmp}/narchy.lock"
+CURRENT="$KROMI_STATE/current"
+NEXT="$KROMI_STATE/next"
+LOCK="${XDG_RUNTIME_DIR:-/tmp}/kromi.lock"
 
-# May set NARCHY_APPS to override detection.
+# May set KROMI_APPS to override detection.
 # shellcheck disable=SC1091
-[[ -f $NARCHY_CONFIG/config ]] && source "$NARCHY_CONFIG/config"
+[[ -f $KROMI_CONFIG/config ]] && source "$KROMI_CONFIG/config"
 
 die() {
-  printf 'narchy: %s\n' "$*" >&2
+  printf 'kromi: %s\n' "$*" >&2
   exit 1
 }
-warn() { printf 'narchy: %s\n' "$*" >&2; }
+warn() { printf 'kromi: %s\n' "$*" >&2; }
 
 # --- lookup -----------------------------------------------------------------
 # User dir shadows the shipped one, so anything can be overridden by name.
 
-search_dirs() { printf '%s\n%s\n' "$NARCHY_CONFIG/$1" "$NARCHY_PATH/$1"; }
+search_dirs() { printf '%s\n%s\n' "$KROMI_CONFIG/$1" "$KROMI_PATH/$1"; }
 
 find_first() {
   local dir
@@ -76,8 +76,8 @@ prepend_line() {
   mkdir -p "$(dirname "$file")"
   [[ -e $file ]] || : >"$file"
   grep -qxF "$line" "$file" && return 0
-  printf '%s\n%s' "$line" "$(cat "$file")" >"$file.narchy-tmp"
-  mv "$file.narchy-tmp" "$file"
+  printf '%s\n%s' "$line" "$(cat "$file")" >"$file.kromi-tmp"
+  mv "$file.kromi-tmp" "$file"
 }
 
 # Idempotent. Appends, which is what CSS needs: later rules win.
@@ -94,8 +94,8 @@ drop_line() {
   local file=$1 line=$2
   [[ -f $file ]] || return 0
   grep -qxF "$line" "$file" || return 0
-  grep -vxF "$line" "$file" >"$file.narchy-tmp" || true
-  mv "$file.narchy-tmp" "$file"
+  grep -vxF "$line" "$file" >"$file.kromi-tmp" || true
+  mv "$file.kromi-tmp" "$file"
   # A config that held nothing but our line was ours to begin with.
   [[ -s $file ]] || rm -f "$file"
 }
@@ -147,22 +147,22 @@ set_json() {
     warn "jq not found; set \"$key\": $value in $file yourself"
     return 1
   fi
-  if ! jq --arg k "$key" --argjson v "$value" '.[$k] = $v' "$file" >"$file.narchy-tmp" 2>/dev/null; then
-    rm -f "$file.narchy-tmp"
+  if ! jq --arg k "$key" --argjson v "$value" '.[$k] = $v' "$file" >"$file.kromi-tmp" 2>/dev/null; then
+    rm -f "$file.kromi-tmp"
     warn "cannot parse $file; set \"$key\": $value in it yourself"
     return 1
   fi
-  mv "$file.narchy-tmp" "$file"
+  mv "$file.kromi-tmp" "$file"
 }
 
 drop_json() {
   local file=$1 key=$2
   [[ -f $file ]] || return 0
   command -v jq >/dev/null 2>&1 || return 0
-  if jq --arg k "$key" 'del(.[$k])' "$file" >"$file.narchy-tmp" 2>/dev/null; then
-    mv "$file.narchy-tmp" "$file"
+  if jq --arg k "$key" 'del(.[$k])' "$file" >"$file.kromi-tmp" 2>/dev/null; then
+    mv "$file.kromi-tmp" "$file"
   else
-    rm -f "$file.narchy-tmp"
+    rm -f "$file.kromi-tmp"
   fi
 }
 
@@ -192,8 +192,8 @@ app_run() {
 }
 
 enabled_apps() {
-  if [[ -n ${NARCHY_APPS:-} ]]; then
-    printf '%s\n' ${NARCHY_APPS}
+  if [[ -n ${KROMI_APPS:-} ]]; then
+    printf '%s\n' ${KROMI_APPS}
     return 0
   fi
   local app
@@ -323,7 +323,7 @@ build_sed_script() {
 
 # --- backgrounds ------------------------------------------------------------
 # A wallpaper is not derived from the palette, so it is chosen rather than
-# rendered: narchy points `current/background` at one and leaves showing it to
+# rendered: kromi points `current/background` at one and leaves showing it to
 # whichever daemon is installed.
 
 # if/fi rather than `[[ ]] &&`, which would leave the group returning 1 when a
@@ -331,8 +331,8 @@ build_sed_script() {
 list_backgrounds() {
   local theme=$1 root=$2
   {
-    if [[ -d $NARCHY_CONFIG/backgrounds/$theme ]]; then
-      find -L "$NARCHY_CONFIG/backgrounds/$theme" -maxdepth 1 -type f -print
+    if [[ -d $KROMI_CONFIG/backgrounds/$theme ]]; then
+      find -L "$KROMI_CONFIG/backgrounds/$theme" -maxdepth 1 -type f -print
     fi
     if [[ -d $root/backgrounds ]]; then
       find -L "$root/backgrounds" -maxdepth 1 -type f -print
@@ -364,12 +364,12 @@ title_case() { printf '%s\n' "$1" | sed -E 's/(^|-)([a-z])/\1\u\2/g; s/-/ /g'; }
 # --- commands ---------------------------------------------------------------
 
 cmd_set() {
-  [[ $# -ge 1 ]] || die "usage: narchy set <theme>"
+  [[ $# -ge 1 ]] || die "usage: kromi set <theme>"
   local name theme_dir
   name=$(normalise_name "$1")
   theme_dir=$(find_first themes "$name") || die "no such theme: $name"
 
-  mkdir -p "$NARCHY_STATE"
+  mkdir -p "$KROMI_STATE"
   exec 9>"$LOCK"
   flock 9
 
@@ -427,7 +427,7 @@ cmd_set() {
     app_run "$app" reload || warn "$app: reload failed"
   done
 
-  printf 'narchy: %s\n' "$(title_case "$name")"
+  printf 'kromi: %s\n' "$(title_case "$name")"
 }
 
 # Every theme, with a star on one of them. Shared by `list` and the header
@@ -482,7 +482,7 @@ interactive_roll() {
     printf '\nstopped on %s\n' "$(cat "$CURRENT/.name" 2>/dev/null || echo unknown)"
   elif [[ -n $original ]]; then
     cmd_set "$original" >/dev/null
-    printf '\nback to %s — apply any of the above with: narchy set <name>\n' "$original"
+    printf '\nback to %s — apply any of the above with: kromi set <name>\n' "$original"
   fi
 }
 
@@ -586,7 +586,7 @@ interactive_browse() {
 
 cmd_interactive() {
   local delay=${1:-3}
-  [[ $delay =~ ^[0-9]+$ ]] || die "usage: narchy interactive [seconds]"
+  [[ $delay =~ ^[0-9]+$ ]] || die "usage: kromi interactive [seconds]"
 
   # Naming an interval is asking to be stepped through; without one, wait for
   # a key. Unattended runs roll either way — there is nothing to wait on.
@@ -619,7 +619,7 @@ cmd_background() {
       readlink "$CURRENT/background"
       ;;
     apply)
-      # For a daemon that is up but showing nothing, or one narchy has not been
+      # For a daemon that is up but showing nothing, or one kromi has not been
       # linked into. A linked hyprpaper reads its own config at startup and
       # needs no help after a login.
       reload_background_apps
@@ -640,7 +640,7 @@ cmd_background() {
       basename "$(readlink "$CURRENT/background")"
       ;;
     *)
-      die "usage: narchy background [show|next|apply]"
+      die "usage: kromi background [show|next|apply]"
       ;;
   esac
 }
@@ -660,7 +660,7 @@ cmd_apps() {
 cmd_link() {
   local apps=("$@")
   [[ ${#apps[@]} -gt 0 ]] || mapfile -t apps < <(enabled_apps)
-  [[ -f $CURRENT/.name ]] || die "run 'narchy set <theme>' first"
+  [[ -f $CURRENT/.name ]] || die "run 'kromi set <theme>' first"
   local app
   for app in "${apps[@]}"; do
     app_run "$app" link && printf 'linked %s\n' "$app" || warn "$app: link failed"
@@ -678,20 +678,20 @@ cmd_unlink() {
 
 cmd_help() {
   cat <<'USAGE'
-narchy — apply one colour palette across a desktop's apps.
+kromi — apply one colour palette across a desktop's apps.
 
-  narchy set <theme>      render the palette and reload running apps
-  narchy list             list themes, marking the current one
-  narchy interactive      list themes, then browse them: n/p step, a auto,
-    (i, demo) [seconds]   r restore, x keep; with seconds, starts rolling
-  narchy current          print the current theme
-  narchy background next  cycle to this theme's next wallpaper
-  narchy background apply put the current one back on a running daemon
-  narchy apps             list app definitions, marking detected ones
-  narchy link [app...]    point app configs at narchy's output (opt-in)
-  narchy unlink [app...]  undo link
+  kromi set <theme>      render the palette and reload running apps
+  kromi list             list themes, marking the current one
+  kromi interactive      list themes, then browse them: n/p step, a auto,
+    (i, demo) [seconds]  r restore, x keep; with seconds, starts rolling
+  kromi current          print the current theme
+  kromi background next  cycle to this theme's next wallpaper
+  kromi background apply put the current one back on a running daemon
+  kromi apps             list app definitions, marking detected ones
+  kromi link [app...]    point app configs at kromi's output (opt-in)
+  kromi unlink [app...]  undo link
 
-`set` only ever writes inside narchy's own state directory. `link` is the
+`set` only ever writes inside kromi's own state directory. `link` is the
 only command that touches your app configs; skip it if you manage those
 yourself, and add the import lines shown in the README instead.
 USAGE
@@ -710,7 +710,7 @@ main() {
     link) cmd_link "$@" ;;
     unlink) cmd_unlink "$@" ;;
     help | -h | --help) cmd_help ;;
-    *) die "unknown command: $cmd (try 'narchy help')" ;;
+    *) die "unknown command: $cmd (try 'kromi help')" ;;
   esac
 }
 

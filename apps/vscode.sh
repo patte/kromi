@@ -1,7 +1,7 @@
 templates="vscode.json"
 
 settings="${XDG_CONFIG_HOME:-$HOME/.config}/Code/User/settings.json"
-backup="$NARCHY_STATE/vscode-settings-backup.json"
+backup="$KROMI_STATE/vscode-settings-backup.json"
 
 detect() { command -v code >/dev/null 2>&1; }
 
@@ -10,7 +10,7 @@ detect() { command -v code >/dev/null 2>&1; }
 # file, so shipping a generated theme extension leaves the editor a palette
 # behind. colorCustomizations is the one mechanism it applies immediately.
 #
-# That makes this the only app narchy writes a config for on `set`. It happens
+# That makes this the only app kromi writes a config for on `set`. It happens
 # solely once vscode has been linked, which is what the backup marks.
 #
 # The cost of customisations is that they layer over whatever colour theme is
@@ -50,12 +50,12 @@ apply() {
         | if $new[0]["workbench.colorTheme"] then
             ."workbench.colorTheme" = $new[0]["workbench.colorTheme"]
           else . end
-      ' "$settings" >"$settings.narchy-tmp" 2>/dev/null; then
-    rm -f "$settings.narchy-tmp"
+      ' "$settings" >"$settings.kromi-tmp" 2>/dev/null; then
+    rm -f "$settings.kromi-tmp"
     warn "cannot parse $settings; leaving it alone"
     return 1
   fi
-  mv "$settings.narchy-tmp" "$settings"
+  mv "$settings.kromi-tmp" "$settings"
 }
 
 reload() {
@@ -89,8 +89,8 @@ unlink() {
       | reduce ("workbench.colorCustomizations", "editor.tokenColorCustomizations",
                 "workbench.colorTheme") as $k
           ($s; if ($old[0][$k] == null) then del(.[$k]) else .[$k] = $old[0][$k] end)
-    ' "$settings" >"$settings.narchy-tmp" 2>/dev/null &&
-      mv "$settings.narchy-tmp" "$settings" || rm -f "$settings.narchy-tmp"
+    ' "$settings" >"$settings.kromi-tmp" 2>/dev/null &&
+      mv "$settings.kromi-tmp" "$settings" || rm -f "$settings.kromi-tmp"
     rm -f "$backup"
   fi
 }

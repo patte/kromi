@@ -14,7 +14,7 @@
 
 :root {
   /* Scrollbars, form controls, and every system colour left unnamed below
-     resolve from this rather than from a colour narchy can set. */
+     resolve from this rather than from a colour kromi can set. */
   color-scheme: {{ mode }} !important;
 
   /* Titlebar and the strip the tabs sit in. */

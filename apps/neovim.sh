@@ -1,7 +1,7 @@
 templates="neovim.lua"
 
 config="${XDG_CONFIG_HOME:-$HOME/.config}/nvim/init.lua"
-include='pcall(dofile, (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/narchy/current/neovim.lua")'
+include='pcall(dofile, (os.getenv("XDG_STATE_HOME") or (os.getenv("HOME") .. "/.local/state")) .. "/kromi/current/neovim.lua")'
 
 detect() { command -v nvim >/dev/null 2>&1; }
 
@@ -19,7 +19,7 @@ detect() { command -v nvim >/dev/null 2>&1; }
 # insert mode would have the reload typed into their buffer.
 #
 # `and` rather than an `if`, because luaeval takes an expression. Only the
-# instances still wearing narchy's colours are touched — an init.lua that
+# instances still wearing kromi's colours are touched — an init.lua that
 # picks a colorscheme below our line has already overridden us there, and a
 # theme switch is no reason to take that window off it.
 #
@@ -40,7 +40,7 @@ reload() {
     for sock in "$run"/*."$pid".[0-9]*; do
       [[ -S $sock ]] || continue
       timeout 2 nvim --server "$sock" --remote-expr \
-        "luaeval('vim.g.colors_name == \"narchy\" and pcall(dofile, _A)', '$file')" \
+        "luaeval('vim.g.colors_name == \"kromi\" and pcall(dofile, _A)', '$file')" \
         >/dev/null 2>&1 || true
     done
   done < <(pgrep -x nvim 2>/dev/null)
