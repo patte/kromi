@@ -75,7 +75,7 @@ Every config change is listed and reversible with `kromi unlink`; see
 After setup, switch themes directly or browse them interactively:
 
 ```sh
-kromi interactive        # browse themes: n/p step, a auto, r restore, x keep
+kromi interactive        # browse themes: n/p step, a auto, r restore, x/q keep
 kromi set nord           # set nord theme
 ```
 
@@ -85,7 +85,7 @@ If you manage your own dotfiles, skip `setup` and add the connections from
 ## Everyday use
 
 ```sh
-kromi interactive        # browse themes: n/p step, a auto, r restore, x keep
+kromi interactive        # browse themes: n/p step, a auto, r restore, x/q keep
 
 kromi set <theme>        # apply a theme
 kromi list               # list themes and mark the current one

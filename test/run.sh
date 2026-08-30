@@ -720,6 +720,13 @@ sys.exit(0)
   [[ -n $showing && $showing != nord && $(KROMI_APPS=dummy "$KROMI" current) == "$showing" ]]
   check $? "x leaves the theme it stopped on"
 
+  # q is the same key: someone who quits with it should not lose the theme.
+  KROMI_APPS=dummy "$KROMI" set nord >/dev/null
+  KROMI_APPS=dummy pty 'nq' "$KROMI" i >"$SANDBOX/i-quit.out" 2>&1 || true
+  showing=$(showing_of "$SANDBOX/i-quit.out")
+  tr -d '\r' <"$SANDBOX/i-quit.out" | grep -q "^Keeping $showing\\.$"
+  check $? "q keeps the theme it was showing, as x does"
+
   # Ctrl-C is x: the trap fires at once but does not make a blocked read
   # return, so a browse that waits on the keypress itself sits there ignoring
   # it.

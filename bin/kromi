@@ -591,7 +591,7 @@ interactive_browse() {
   printf '\n'
 
   # r sits with the keys that keep browsing; x is the one that ends it.
-  printf 'n next   p previous   a auto   1-9 speed   r restore   x keep\n'
+  printf 'n next   p previous   a auto   1-9 speed   r restore   x/q keep\n'
   ((auto)) && printf 'Auto: every %ss (press a to stop)\n' "$delay"
   printf '\n'
 
@@ -648,7 +648,7 @@ interactive_browse() {
         delay=$key
         printf '      Speed: %ss\n' "$delay"
         ;;
-      x | X)
+      x | X | q | Q)
         trap - INT
         printf '\nKeeping %s.\n' "$applied"
         return 0
@@ -1108,7 +1108,7 @@ kromi — apply one color palette across your desktop apps.
                          apply a theme, and optionally browse themes
   kromi set <theme>      apply a theme and reload running apps
   kromi list             list themes and mark the current one
-  kromi interactive      browse themes: n/p step, a auto, r restore, x keep
+  kromi interactive      browse themes: n/p step, a auto, r restore, x/q keep
     (i, demo) [seconds]  give seconds to start browsing automatically
   kromi current          show the current theme
   kromi wallpaper next   use this theme's next wallpaper
