@@ -848,19 +848,26 @@ cmd_setup() {
     setup_wallpaper_daemons "${installed[@]}"
   else
     printf 'No wallpaper for %s yet.\n' "$theme"
-    # This theme's, not every theme's: setup is configuring one, and the
-    # whole collection is a large download of other people's artwork that
-    # nobody asked for. `kromi wallpaper fetch` with no theme is the way to
-    # get all of them, and the closing hint names it.
-    if ask "Fetch $theme's wallpapers from Omarchy? (needs git; the pictures are theirs to license, yours to look at)" n; then
+    # The collection first, because that is the answer that makes every later
+    # `kromi set` complete; the one theme's set is the fallback for someone
+    # who would rather not take 80 MB of other people's artwork on trust.
+    local fetched=0
+    if ask "Fetch wallpapers for every theme from Omarchy? (about 80 MB; needs git; the pictures are theirs to license, yours to look at)" y; then
+      cmd_wallpaper fetch
+      fetched=1
+    elif ask "Just $theme's, then?" y; then
       cmd_wallpaper fetch "$theme"
-      if [[ -L $CURRENT/wallpaper ]]; then
-        printf 'Wallpaper: %s\n' "$(readlink "$CURRENT/wallpaper")"
-        setup_wallpaper_daemons "${installed[@]}"
-      fi
-    else
-      printf 'Skipped. Later: kromi wallpaper fetch %s (or every theme, with no name), or drop pictures in %s/wallpapers/%s/\n' \
+      fetched=1
+    fi
+    if ((fetched)) && [[ -L $CURRENT/wallpaper ]]; then
+      printf 'Wallpaper: %s\n' "$(readlink "$CURRENT/wallpaper")"
+      setup_wallpaper_daemons "${installed[@]}"
+    elif ((fetched)); then
+      printf 'Nothing upstream for %s. Drop pictures in %s/wallpapers/%s/\n' \
         "$theme" "$(tilde "$KROMI_CONFIG")" "$theme"
+    else
+      printf 'Skipped. Later: kromi wallpaper fetch [theme], or drop pictures in %s/wallpapers/%s/\n' \
+        "$(tilde "$KROMI_CONFIG")" "$theme"
     fi
   fi
 

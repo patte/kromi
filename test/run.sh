@@ -15,6 +15,13 @@ export HOME="$SANDBOX"
 # could reach them could reload the editor someone is working in.
 export XDG_RUNTIME_DIR="$SANDBOX/run"
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_STATE_HOME" "$XDG_RUNTIME_DIR"
+# Nor may it look at the real Firefox install: `kromi link firefox` asks
+# whether the live loader is in, and on a machine where it is, it would
+# refuse. The loader tests set their own stand-in.
+export KROMI_FIREFOX_APP="$SANDBOX/no-firefox"
+mkdir -p "$KROMI_FIREFOX_APP"
+printf '#!/bin/sh\n' >"$KROMI_FIREFOX_APP/firefox"
+chmod +x "$KROMI_FIREFOX_APP/firefox"
 
 pass=0
 fail=0
@@ -50,6 +57,7 @@ FIXTURE="$SANDBOX/fixture"
 mkdir -p "$FIXTURE/apps"
 ln -s "$ROOT/themes" "$FIXTURE/themes"
 ln -s "$ROOT/templates" "$FIXTURE/templates"
+ln -s "$ROOT/lib" "$FIXTURE/lib"
 for app in "$ROOT"/apps/*.sh; do
   name=$(basename "$app")
   if [[ $name == vscode.sh || $name == vlc.sh || $name == firefox.sh ]]; then
@@ -789,6 +797,29 @@ check $? "no wallpaper link when there are no images"
 [[ -f $HP ]]
 check $? "the sourced file is written for a theme with no wallpaper"
 
+# Point the fetcher at a local repo, so everything from here stays offline:
+# setup fetches by default now, and so would the network.
+SOURCE="$SANDBOX/source"
+mkdir -p "$SOURCE/themes/nord/backgrounds" "$SOURCE/themes/gruvbox/backgrounds"
+echo "upstream-a" >"$SOURCE/themes/nord/backgrounds/a.jpg"
+echo "upstream-b" >"$SOURCE/themes/nord/backgrounds/b.jpg"
+echo "upstream-c" >"$SOURCE/themes/gruvbox/backgrounds/c.jpg"
+(
+  cd "$SOURCE"
+  git init -q .
+  git config user.email t@t
+  git config user.name t
+  git config uploadpack.allowFilter true
+  git add -A
+  git commit -qm fixtures
+  git tag v-test
+) >/dev/null 2>&1
+
+export KROMI_WALLPAPERS_REPO="$SOURCE"
+export KROMI_WALLPAPERS_REF="v-test"
+fetch() { KROMI_PATH=$ROOT "$KROMI" wallpaper fetch "$@"; }
+DEST="$XDG_CONFIG_HOME/kromi/wallpapers"
+
 echo "setup"
 
 # Piped in, setup takes its defaults: link yes, fetch no. hyprpaper is not
@@ -843,13 +874,15 @@ KROMI_APPS=hyprpaper "$KROMI" setup nord >"$SANDBOX/setup-running.out" 2>&1 </de
 check $? "setup leaves a running daemon alone"
 rm -f "$XDG_STATE_HOME/running-hyprpaper" "$XDG_STATE_HOME/started-hyprpaper"
 
-# And with none, it offers to fetch, and does not without a yes.
+# And with none, it offers the whole collection, which is the default answer:
+# every theme's pictures land, and the one on screen goes up.
 KROMI_APPS=hyprpaper "$KROMI" setup gruvbox >"$SANDBOX/setup.out" 2>&1 </dev/null
-grep -q '^No wallpaper for gruvbox' "$SANDBOX/setup.out" && grep -q 'kromi wallpaper fetch' "$SANDBOX/setup.out"
-check $? "setup points at the fetch when a theme has no wallpaper"
+grep -q '^No wallpaper for gruvbox' "$SANDBOX/setup.out" && grep -q "^Wallpaper: $DEST/gruvbox/c.jpg" "$SANDBOX/setup.out"
+check $? "setup fetches wallpapers by default and shows the theme's"
 
-[[ ! -d $BG/gruvbox ]]
-check $? "setup does not fetch unless told to"
+[[ -f $DEST/nord/a.jpg && -f $DEST/gruvbox/c.jpg ]]
+check $? "the default fetch is every theme, not just the one on screen"
+rm -rf "$DEST"
 
 grep -q '^source = .*kromi/current/hyprpaper.conf$' "$XDG_CONFIG_HOME/hypr/hyprpaper.conf"
 check $? "setup links hyprpaper even before there is a wallpaper"
@@ -893,29 +926,9 @@ fi
 
 echo "wallpaper fetch"
 
-# Point the fetcher at a local repo, so this stays offline.
-SOURCE="$SANDBOX/source"
-mkdir -p "$SOURCE/themes/nord/backgrounds" "$SOURCE/themes/gruvbox/backgrounds"
-echo "upstream-a" >"$SOURCE/themes/nord/backgrounds/a.jpg"
-echo "upstream-b" >"$SOURCE/themes/nord/backgrounds/b.jpg"
-echo "upstream-c" >"$SOURCE/themes/gruvbox/backgrounds/c.jpg"
-(
-  cd "$SOURCE"
-  git init -q .
-  git config user.email t@t
-  git config user.name t
-  git config uploadpack.allowFilter true
-  git add -A
-  git commit -qm fixtures
-  git tag v-test
-) >/dev/null 2>&1
-
-export KROMI_WALLPAPERS_REPO="$SOURCE"
-export KROMI_WALLPAPERS_REF="v-test"
-fetch() { KROMI_PATH=$ROOT "$KROMI" wallpaper fetch "$@"; }
-DEST="$XDG_CONFIG_HOME/kromi/wallpapers"
 
 # gruvbox is the theme on screen and has had no picture until now.
+rm -rf "$DEST"
 KROMI_APPS=dummy "$KROMI" set gruvbox >/dev/null
 fetch nord gruvbox >"$SANDBOX/fetch.out" 2>&1
 [[ -f $DEST/nord/a.jpg && -f $DEST/nord/b.jpg && -f $DEST/gruvbox/c.jpg ]]
@@ -924,18 +937,26 @@ check $? "wallpapers are fetched into the user's wallpapers dir"
 [[ $("$KROMI" wallpaper) == "$DEST/gruvbox/c.jpg" ]] && grep -q '^selected c.jpg for gruvbox$' "$SANDBOX/fetch.out"
 check $? "a fetch for the theme on screen selects its wallpaper at once"
 
-# Setup's fetch, accepted, is for the one theme it is configuring — not the
-# collection. A terminal is needed to say yes: the link question takes its
-# default, the fetch question gets a y, and the daemon question its default.
+# At a terminal, no to the collection is followed by the offer of the one
+# theme's set. Keys: link takes its default, n to every theme, y to just this
+# one, and the daemon question its default.
 if command -v python3 >/dev/null 2>&1; then
   rm -rf "$DEST"
-  KROMI_APPS=hyprpaper KROMI_PATH=$ROOT pty '\ny\n\n' "$KROMI" setup nord >"$SANDBOX/setup-fetch.out" 2>&1 || true
+  KROMI_APPS=hyprpaper KROMI_PATH=$ROOT pty '\nn\ny\n\n' "$KROMI" setup nord >"$SANDBOX/setup-fetch.out" 2>&1 || true
   [[ -f $DEST/nord/a.jpg && ! -e $DEST/gruvbox ]]
-  check $? "setup fetches wallpapers for its theme only"
+  check $? "no to every theme, yes to this one, fetches this one only"
 
   grep -q "^Wallpaper: $DEST/nord/a.jpg" "$SANDBOX/setup-fetch.out"
   check $? "setup shows the wallpaper it fetched"
   KROMI_APPS=hyprpaper "$KROMI" unlink >/dev/null
+
+  # And no to both leaves nothing fetched, with the hint.
+  rm -rf "$DEST"
+  KROMI_APPS=hyprpaper KROMI_PATH=$ROOT pty '\nn\nn\n' "$KROMI" setup nord >"$SANDBOX/setup-nofetch.out" 2>&1 || true
+  [[ ! -e $DEST ]] && grep -q 'Skipped. Later: kromi wallpaper fetch' "$SANDBOX/setup-nofetch.out"
+  check $? "no to both fetches nothing and says how to later"
+  KROMI_APPS=hyprpaper "$KROMI" unlink >/dev/null
+  fetch nord gruvbox >/dev/null 2>&1
 fi
 
 KROMI_PATH=$ROOT "$KROMI" wallpaper list >"$SANDBOX/wl.txt" 2>&1
