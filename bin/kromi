@@ -351,13 +351,27 @@ list_wallpapers() {
 
 has_wallpaper() { [[ -n $(list_wallpapers "$1" "$(find_first themes "$1")" | head -1) ]]; }
 
+# One file per theme, holding the name of the picture `wallpaper next` last
+# stopped on, so a switch away and back comes home to it rather than to the
+# first in the list. By name, not path: a picture moved between wallpapers/
+# and backgrounds/ is still the same choice.
+CHOSEN="$KROMI_STATE/chosen"
+
 # Called while the new theme is still staged, so anything the theme ships has
 # to be named where it will live once the directory is swapped in.
 set_wallpaper_link() {
-  local theme=$1 first
-  first=$(list_wallpapers "$theme" "$NEXT" | head -1)
-  [[ -n $first ]] || return 0
-  ln -snf "${first/#$NEXT\//$CURRENT/}" "$NEXT/wallpaper"
+  local theme=$1 chosen="" pick="" file
+  [[ -f $CHOSEN/$theme ]] && chosen=$(<"$CHOSEN/$theme")
+  while read -r file; do
+    [[ -n $file ]] || continue
+    [[ -z $pick ]] && pick=$file
+    if [[ -n $chosen && $(basename "$file") == "$chosen" ]]; then
+      pick=$file
+      break
+    fi
+  done < <(list_wallpapers "$theme" "$NEXT")
+  [[ -n $pick ]] || return 0
+  ln -snf "${pick/#$NEXT\//$CURRENT/}" "$NEXT/wallpaper"
 }
 
 reload_wallpaper_apps() {
@@ -660,8 +674,9 @@ cmd_wallpaper() {
       done
 
       ln -snf "${all[$(((index + 1) % ${#all[@]}))]}" "$CURRENT/wallpaper"
+      mkdir -p "$CHOSEN"
+      basename "$(readlink "$CURRENT/wallpaper")" | tee "$CHOSEN/$theme"
       reload_wallpaper_apps
-      basename "$(readlink "$CURRENT/wallpaper")"
       ;;
     *)
       die "usage: kromi wallpaper [show|next|apply|fetch [theme...]|list]"

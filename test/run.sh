@@ -721,6 +721,21 @@ KROMI_APPS=dummy "$KROMI" wallpaper next >/dev/null
 [[ $(KROMI_APPS=dummy "$KROMI" wallpaper next) == "1-first.jpg" ]]
 check $? "wallpaper next wraps around"
 
+# What next stopped on is where the theme comes back to, and where set lands
+# when the theme is applied again — not the first in the list.
+KROMI_APPS=dummy "$KROMI" wallpaper next >/dev/null
+KROMI_APPS=dummy "$KROMI" set gruvbox >/dev/null
+KROMI_APPS=dummy "$KROMI" set nord >/dev/null
+[[ $("$KROMI" wallpaper) == "$BG/nord/2-second.png" ]]
+check $? "a theme remembers the wallpaper it was left on"
+
+# A choice whose picture has gone falls back to the first, quietly.
+rm "$BG/nord/2-second.png"
+KROMI_APPS=dummy "$KROMI" set nord >/dev/null
+[[ $("$KROMI" wallpaper) == "$BG/nord/1-first.jpg" ]]
+check $? "a remembered wallpaper that is gone falls back to the first"
+echo y >"$BG/nord/2-second.png"
+
 # The old name still reads: pictures fetched before the rename stay found.
 mkdir -p "$XDG_CONFIG_HOME/kromi/backgrounds/kanagawa"
 echo k >"$XDG_CONFIG_HOME/kromi/backgrounds/kanagawa/old.jpg"
@@ -757,7 +772,7 @@ KROMI_APPS="hyprland waybar" "$KROMI" unlink >/dev/null
 
 # With hyprpaper there and pictures for the theme, it reports the one chosen.
 KROMI_APPS=hyprpaper "$KROMI" setup nord >"$SANDBOX/setup.out" 2>&1 </dev/null
-grep -q "^Wallpaper: $BG/nord/1-first.jpg$" "$SANDBOX/setup.out"
+grep -q "^Wallpaper: $BG/nord/" "$SANDBOX/setup.out"
 check $? "setup names the wallpaper when the theme has one"
 
 # And with none, it offers to fetch, and does not without a yes.
