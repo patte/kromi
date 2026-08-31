@@ -20,11 +20,11 @@ distribution. It does not install your apps or take over their configs:
   include, import, or pointer to kromi's generated files.
 - `kromi unlink` removes that connection and restores any settings kromi replaced.
 
-## New to Hyprland?
+## Set up Hyprland desktop
 
-kromi themes apps you already have. If you saw the video and want the whole
-desktop, install Hyprland and the apps it styles first, then come back to
-[Install](#install). Pick your distribution:
+Kromi only styles already installed apps. If you are using a different desktop currently (gnome, KDE, ...) but would like to switch to Hyprland to use kromi, follow this guide. 
+
+Pick your distribution:
 
 <details>
 <summary><strong>Arch Linux</strong></summary>
@@ -62,29 +62,36 @@ updated fork.*
 <details>
 <summary><strong>Ubuntu</strong></summary>
 
-On Ubuntu 26.04 LTS everything is in the official repositories:
+For Ubuntu 26.04 LTS everything is in the official repositories:
 
 ```sh
 sudo apt install hyprland hyprpaper waybar wofi mako-notifier ghostty btop \
   fonts-font-awesome
 ```
 
-*Verified 2026-08 on Ubuntu 26.04 (Hyprland 0.53, Ghostty 1.3). Ubuntu 24.04
-and older do not package Hyprland — upgrade first.*
+*Verified 2026-08 on Ubuntu 26.04 (Hyprland 0.53, Ghostty 1.3).*
 
 </details>
 
-### First launch
+<br/>
+Once you got hyprland installed, follow these steps to finish its setup:
 
-With a login screen (GDM, SDDM): log out and pick **Hyprland** from the
-session menu. Without one: log in on a console and run `Hyprland`.
+<details>
+<summary><strong>
+Start and Setup Hyprland
+</strong></summary>
 
-Hyprland writes an example config on first launch: `~/.config/hypr/hyprland.conf`,
-or `hyprland.lua` on Hyprland 0.56 and newer. Keep it — kromi connects to
-whichever one you have. Two small edits make it comfortable:
+If you use a login screen such as GDM or SDDM, log out, choose **Hyprland**
+from the session menu and log in.
+Otherwise, log in on a console and run `Hyprland`.
 
-The example config does not start the bar, wallpaper, or notification daemon.
-Add them at the end:
+On first launch, Hyprland creates `~/.config/hypr/hyprland.conf`, or
+`hyprland.lua` on Hyprland 0.56 and newer. Keep that config: kromi connects to
+whichever one you have.
+
+Two small changes to the config left:
+First, add these lines at the end of the config so Hyprland starts the bar,
+wallpaper, and notification daemon:
 
 ```ini
 # hyprland.conf (Hyprland <= 0.55)
@@ -101,10 +108,13 @@ hl.exec_cmd("pgrep -x hyprpaper >/dev/null || hyprpaper")
 hl.exec_cmd("pgrep -x mako >/dev/null || mako")
 ```
 
-And the example config opens the kitty terminal with Super+Q. Install kitty
-too, or point the config's `terminal` line at `ghostty`.
+The default config also binds Super+Q to the kitty terminal. Because kromi styles ghostty change the config's `terminal` line to `ghostty`.
 
-Then head to [Install](#install) and run `kromi setup`.
+
+
+With the desktop running, [install kromi](#install) and run `kromi setup`.
+
+</details>
 
 
 ## Install
