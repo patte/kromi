@@ -20,6 +20,93 @@ distribution. It does not install your apps or take over their configs:
   include, import, or pointer to kromi's generated files.
 - `kromi unlink` removes that connection and restores any settings kromi replaced.
 
+## New to Hyprland?
+
+kromi themes apps you already have. If you saw the video and want the whole
+desktop, install Hyprland and the apps it styles first, then come back to
+[Install](#install). Pick your distribution:
+
+<details>
+<summary><strong>Arch Linux</strong></summary>
+
+Everything comes from the official repositories:
+
+```sh
+sudo pacman -S --needed hyprland hyprpaper waybar wofi mako ghostty btop \
+  ttf-font-awesome noto-fonts
+```
+
+*Verified 2026-08 on Arch (Hyprland 0.56, Ghostty 1.3).*
+
+</details>
+
+<details>
+<summary><strong>Fedora</strong></summary>
+
+Fedora does not package Hyprland or Ghostty itself. Enable two COPR
+repositories, then install:
+
+```sh
+sudo dnf copr enable sdegler/hyprland
+sudo dnf copr enable scottames/ghostty
+sudo dnf install hyprland hyprpaper waybar wofi mako ghostty btop \
+  fontawesome-fonts-all
+```
+
+*Verified 2026-08 on Fedora 44 (Hyprland 0.56, Ghostty 1.3). The widely cited
+`solopasha/hyprland` COPR is no longer maintained; `sdegler/hyprland` is its
+updated fork.*
+
+</details>
+
+<details>
+<summary><strong>Ubuntu</strong></summary>
+
+On Ubuntu 26.04 LTS everything is in the official repositories:
+
+```sh
+sudo apt install hyprland hyprpaper waybar wofi mako-notifier ghostty btop \
+  fonts-font-awesome
+```
+
+*Verified 2026-08 on Ubuntu 26.04 (Hyprland 0.53, Ghostty 1.3). Ubuntu 24.04
+and older do not package Hyprland — upgrade first.*
+
+</details>
+
+### First launch
+
+With a login screen (GDM, SDDM): log out and pick **Hyprland** from the
+session menu. Without one: log in on a console and run `Hyprland`.
+
+Hyprland writes an example config on first launch: `~/.config/hypr/hyprland.conf`,
+or `hyprland.lua` on Hyprland 0.56 and newer. Keep it — kromi connects to
+whichever one you have. Two small edits make it comfortable:
+
+The example config does not start the bar, wallpaper, or notification daemon.
+Add them at the end:
+
+```ini
+# hyprland.conf (Hyprland <= 0.55)
+exec-once = waybar
+exec-once = hyprpaper
+exec-once = mako
+```
+
+```lua
+-- hyprland.lua (Hyprland 0.56+). exec_cmd runs again on every config
+-- reload (kromi's theme switch included); the guard prevents duplicates.
+hl.exec_cmd("pgrep -x waybar >/dev/null || waybar")
+hl.exec_cmd("pgrep -x hyprpaper >/dev/null || hyprpaper")
+hl.exec_cmd("pgrep -x mako >/dev/null || mako")
+```
+
+And the example config opens the kitty terminal with Super+Q. Install kitty
+too, or point the config's `terminal` line at `ghostty`.
+
+Then head to [Install](#install) and run `kromi setup`.
+
+
 ## Install
 
 ```sh
